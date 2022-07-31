@@ -84,7 +84,10 @@ impl ParsedPacket {
                     },
                     EtherType::IPv6 => {
                         self.parse_ipv6(content, &mut parsed_packet)?;
-                    }
+                    },
+                    /*EtherType::ARP => {
+                        self.parse_arp(content, &mut parsed_packet)?;
+                    }*/
                     _ => {
                         parsed_packet.remaining = content.to_owned();
                     }
@@ -127,6 +130,10 @@ impl ParsedPacket {
             }
         }
     }
+
+
+
+
 
     pub fn parse_transport_layer(&self, protocol_type: &IPProtocol, content:&[u8], parsed_packet: &mut ParsedPacket) -> Result<(), String> {
         match protocol_type {
