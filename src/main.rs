@@ -6,6 +6,10 @@ fn main() {
     //push
     let cli = Cli::parse();
 
+
+    
+
+    
     let _passed_args = Cli::show_passed_args(&cli);
     //println!("PASSED ARGUMENTS = {:?}", passed_args);
 
