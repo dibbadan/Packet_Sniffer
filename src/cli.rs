@@ -1,6 +1,7 @@
+use crate::sniffer;
 use clap::Parser;
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[clap(name = "Network Packets Sniffer")]
 #[clap(author = "Student_1, Student_2, Student_3")]
 #[clap(version = "1.0")]
@@ -8,13 +9,13 @@ use clap::Parser;
 pub struct Cli {
     /// The network device to sniff on
     #[clap(short = 'd', long = "device")]
-    device_id:u8,
+    device_id: u8,
     /// Time interval ( in seconds ) after wich a new report will be generated
     #[clap(short = 'i', long = "interval")]
-    interval:u32,
+    interval: u32,
     /// Report file to be generated
     #[clap(short = 'o', long = "output")]
-    report:String
+    report: String,
 }
 
 impl Cli {

@@ -9,3 +9,5 @@ edition = "2021"
 pcap = "0.9.2"
 pktparse = "0.7.1"
 clap = { version = "3.2.14", features = ["derive"] }
+network-interface = "0.1.2"
+colored = "2.0.0"
