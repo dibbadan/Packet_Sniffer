@@ -72,7 +72,7 @@ impl Sniffer {
                         }
                     }
                 } else {
-                    dbg!("End of packet stream, shutting down reader thread");
+                    dbg!("End of packet stream, shutting down reader thread!");
                     break;
                 }
             });
