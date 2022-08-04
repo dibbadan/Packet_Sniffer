@@ -3,7 +3,6 @@ extern crate core;
 mod cli;
 use clap::{Parser, Subcommand};
 use cli::Cli;
-use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use sniffer::Sniffer;
 
 mod parser;
@@ -20,5 +19,5 @@ fn main() {
 
     let _devices = sniffer.list_devices();
     sniffer.sniff(_devices[0].clone());
-    sniffer.show_map();
+    //sniffer.show_map();
 }

@@ -9,7 +9,9 @@ use pktparse::udp::UdpHeader;
 use pktparse::*;
 use std::string::ToString;
 
-#[derive(Debug)]
+
+
+#[derive(Debug, Clone)]
 pub enum PacketHeader {
     Tcp(TcpHeader),
     Udp(UdpHeader),
@@ -30,7 +32,7 @@ impl ToString for PacketHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedPacket {
     len: u32,
     timestamp: String,
@@ -68,7 +70,7 @@ impl ParsedPacket {
     ) -> Result<ParsedPacket, String> {
         let mut parsed_packet = self.parse_link_layer(&data)?;
         parsed_packet.len = len;
-        parsed_packet.timestamp = ts;
+        parsed_packet.timestamp = ts.to_string();
         Ok(parsed_packet)
     }
 
