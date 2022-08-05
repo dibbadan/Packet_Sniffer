@@ -1,5 +1,5 @@
 [package]
-name = "packet_sniffer"
+name = "Packet_Sniffer"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,89 +1,131 @@
 use crate::parser::{PacketHeader, ParsedPacket};
 use colored::Colorize;
-use pcap::Device;
+use pcap::{Active, Capture, Device};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::{io, thread};
 
 const MAX_THREADS: usize = 10;
 
-#[derive(Clone)]
-pub struct Sniffer {
-    map: HashMap<(IpAddr, IpAddr), (u32, String, String)>,
+pub fn list_devices() -> Vec<Device> {
+    let mut devices: Vec<Device> = vec![];
+    devices = Device::list().unwrap();
+
+    println!("\n");
+    for (index, device) in devices.iter().enumerate() {
+        println!(
+            "Device #{} | Name: {} | Description: {:?}",
+            index,
+            device.name,
+            device.desc
+        );
+    }
+
+    devices
 }
 
-impl Sniffer {
-    pub fn new() -> Sniffer {
-        Sniffer {
-            map: HashMap::new(),
-        }
-    }
+pub fn sniff(device: Device, interval: u32, report_file: &str) {
+    let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
 
-    pub fn list_devices(&self) -> Vec<Device> {
-        let mut devices: Vec<Device> = vec![];
-        devices = Device::list().unwrap();
+    get_packets(tx, device);
 
-        println!("\n");
-        for (index, device) in devices.iter().enumerate() {
-            println!(
-                "Device #{} | Name: {} | Description: {}",
-                index,
-                device.name,
-                device.desc.as_ref().unwrap()
-            );
-        }
+    receive_packets(rx,interval,report_file);
 
-        devices
-    }
+    get_commands();
+}
 
-    pub fn sniff(&mut self, device: Device) {
-        let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
-        let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
+pub fn get_packets(tx: Sender<ParsedPacket>, device: Device){
+    let cap_handle= Arc::new(Mutex::new(device.open().unwrap()));
+    for i in 0..MAX_THREADS {
+        let parser = ParsedPacket::new();
+        let tx = tx.clone();
+        let cap_handle = cap_handle.clone();
 
-        for i in 0..MAX_THREADS {
-            let parser = ParsedPacket::new();
-            let tx = tx.clone();
-            let cap_handle = cap_handle.clone();
+        thread::spawn(move || loop {
+            let mut cap_handle = cap_handle.lock().unwrap();
+            let mut packet = cap_handle.next();
 
-            thread::spawn(move || loop {
-                let mut cap_handle = cap_handle.lock().unwrap();
-                let mut packet = cap_handle.next();
+            if let Ok(packet) = packet {
+                let data = packet.data.to_owned();
+                let len = packet.header.len;
+                let ts: String = format!(
+                    "{}.{:06}",
+                    &packet.header.ts.tv_sec, &packet.header.ts.tv_usec
+                );
 
-                if let Ok(packet) = packet {
-                    let data = packet.data.to_owned();
-                    let len = packet.header.len;
-                    let ts: String = format!(
-                        "{}.{:06}",
-                        &packet.header.ts.tv_sec, &packet.header.ts.tv_usec
-                    );
+                let parsed_packet = parser.parse_packet(data, len, ts);
 
-                    let parsed_packet = parser.parse_packet(data, len, ts);
-
-                    match parsed_packet {
-                        Ok(parsed_packet) => {
-                            println!("{}", format!("Thread {i} is sending packet to channel!").cyan());
-                            tx.send(parsed_packet).unwrap();
-                        }
-                        Err(err) => {
-                            println!("ERROR : {}", err);
-                        }
+                match parsed_packet {
+                    Ok(parsed_packet) => {
+                        println!("{}", format!("Thread {i} is sending packet to channel!").cyan());
+                        tx.send(parsed_packet).unwrap();
                     }
-                } else {
-                    dbg!("End of packet stream, shutting down reader thread!");
-                    break;
+                    Err(err) => {
+                        println!("ERROR : {}", err);
+                    }
                 }
-            });
-        }
+            } else {
+                dbg!("End of packet stream, shutting down reader thread!");
+                break;
+            }
+        });
+    }
+}
 
-        drop(tx);
-
+pub fn receive_packets(rx: Receiver<ParsedPacket>, interval: u32, report_file: &str){
+    thread::spawn(move || {
         for packet in rx.iter() {
             println!("RECEIVED PACKET = {:?}", packet);
         }
+        dbg!("End of packet stream, shutting down receiver thread!");
+    });
+}
 
+pub fn get_commands(){
+    loop{
+        println!("Please enter s to stop the sniffing");
+        let mut buffer = String::new();
+        let mut r = io::stdin().read_line(&mut buffer);
+        match r {
+            Ok(_) => {
+                let mut c = buffer.chars().next();
+                match c {
+                    Some(c) if c == 's' => {
+                        //aggiorno la variabile di controllo
+                        println!("{}",c);
+                        resume();
+                    },
+                    _ => { println!("input non riconosciuto"); }
+                }
+            },
+            Err(_) => println!("input non riconosciuto")
+        }
+    }
+}
+
+pub fn resume(){
+    loop{
+        println!("Please enter r to resume the sniffing");
+        let mut buffer = String::new();
+        let mut r = io::stdin().read_line(&mut buffer);
+        match r {
+            Ok(_) => {
+                let mut c = buffer.chars().next();
+                match c {
+                    Some(c) if c == 'r' => {
+                        //aggiorno la variabile di controllo
+                        break();
+                    },
+                    _ => { println!("input non riconosciuto"); }
+                }
+            },
+            Err(_) => println!("input non riconosciuto")
+        }
+    }
+}
         /*self.print_headers();
         let mut i = 0;
         self.print_headers();
@@ -129,8 +171,8 @@ impl Sniffer {
                 break;
             }
         }*/
-    }
 
+/*
     pub fn get_packet_meta(
         &self,
         parsed_packet: &ParsedPacket,
@@ -212,3 +254,4 @@ impl Sniffer {
         println!("\n");
     }
 }
+*/
