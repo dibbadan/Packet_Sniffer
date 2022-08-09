@@ -3,6 +3,7 @@ mod executor;
 mod parser;
 mod shared_data;
 mod sniffer;
+mod dns;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;

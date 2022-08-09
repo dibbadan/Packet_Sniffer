@@ -1,18 +1,16 @@
+use std::fmt::Debug;
 use chrono::Timelike;
-use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{LineWriter, Write};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::time::Duration;
 
-use crate::shared_data::key;
+
 use crate::SharedData;
 use colored::Colorize;
 use tokio::{
-    select,
-    task::spawn,
-    time::{interval, sleep},
+    time::{interval},
 };
 
 
@@ -50,10 +48,21 @@ pub async fn task(secs: u64, shared_data: Arc<SharedData>) {
         file.write_all(b"\n").unwrap();
 
         // Convert the Hashmap struct to a JSON string.
-        let json_string =
-            serde_json::to_string(guard.deref()).expect("Error in serializing the data structure!");
+        /*let json_string =
+            serde_json::to_string(guard.deref()).expect("Error in serializing the data structure!");*/
+        /*let json_string =
+            serde_yaml::to_string(guard.deref()).expect("Error in serializing the data structure!");*/
+        /*let json_string =
+            serde_yaml::to_string(guard.deref()).expect("Error in serializing the data structure!");*/
 
-        file.write_all(json_string.as_bytes()).unwrap();
+
+        for (k,v) in guard.deref() {
+            let my_str = format!("{}{}\n", k.to_string(), v.to_string());
+            file.write_all(my_str.as_bytes()).unwrap();
+        }
+
+
+        //file.write_all(json_string.as_bytes()).unwrap();
 
         file.write_all(b"\n").unwrap();
 

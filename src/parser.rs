@@ -8,24 +8,27 @@ use pktparse::tcp::TcpHeader;
 use pktparse::udp::UdpHeader;
 use pktparse::*;
 use std::string::ToString;
+use crate::dns::DnsPacket;
 
 #[derive(Debug)]
 pub enum PacketHeader {
-    Tcp(TcpHeader),
-    Udp(UdpHeader),
+    Ethernet(EthernetFrame),
     Ipv4(IPv4Header),
     Ipv6(IPv6Header),
-    Ethernet(EthernetFrame),
+    Tcp(TcpHeader),
+    Udp(UdpHeader),
+    Dns(DnsPacket)
 }
 
 impl ToString for PacketHeader {
     fn to_string(&self) -> String {
         match self {
+            PacketHeader::Ethernet(_) => String::from("Ethernet"),
             PacketHeader::Ipv4(_) => String::from("Ipv4"),
             PacketHeader::Ipv6(_) => String::from("Ipv6"),
             PacketHeader::Tcp(_) => String::from("Tcp"),
             PacketHeader::Udp(_) => String::from("Udp"),
-            PacketHeader::Ethernet(_) => String::from("Ether"),
+            PacketHeader::Dns(_) => String::from("Dns"),
         }
     }
 }
@@ -145,11 +148,11 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match protocol_type {
             IPProtocol::TCP => {
-                self.parse_tcp(content, parsed_packet);
+                self.parse_tcp(content, parsed_packet).expect("Error in parsing TCP");
                 Ok(())
             }
             IPProtocol::UDP => {
-                self.parse_udp(content, parsed_packet);
+                self.parse_udp(content, parsed_packet).expect("Error in parsing UDP");
                 Ok(())
             }
             _ => {
@@ -183,12 +186,26 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match udp::parse_udp_header(content) {
             Ok((content, udp_header)) => {
+                self.parse_dns(content, parsed_packet);
                 parsed_packet.headers.push(PacketHeader::Udp(udp_header));
                 Ok(())
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
                 Err("Error parsing UDP".to_string())
+            }
+        }
+    }
+
+    fn parse_dns(&self, content: &[u8], parsed_packet: &mut ParsedPacket) {
+        match dns_parser::Packet::parse(content) {
+            Ok(packet) => {
+                parsed_packet
+                    .headers
+                    .push(PacketHeader::Dns(DnsPacket::from(packet)));
+            }
+            Err(_) => {
+                parsed_packet.remaining = content.to_owned();
             }
         }
     }

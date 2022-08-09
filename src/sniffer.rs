@@ -1,16 +1,18 @@
 use crate::parser::{PacketHeader, ParsedPacket};
 use crate::shared_data;
-use crate::shared_data::{key, SharedData};
+use crate::shared_data::{key, SharedData, value};
 use colored::Colorize;
 use pcap::{Active, Capture, Device, Error, Packet};
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
 use std::{io, thread};
+use pktparse::ip::IPProtocol;
+use pktparse::tcp::TcpHeader;
 
 const MAX_THREADS: usize = 10;
 
@@ -45,14 +47,15 @@ pub fn sniff(
 }
 
 pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
-    let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
+    //let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
+    let mut cap_handle = device.open().unwrap();
 
     let parser = ParsedPacket::new();
     let tx = tx.clone();
-    let cap_handle = cap_handle.clone();
+    //let cap_handle = cap_handle.clone();
 
     thread::spawn(move || loop {
-        let mut cap_handle = cap_handle.lock().unwrap();
+        //let mut cap_handle = cap_handle.lock().unwrap();
         let mut packet = cap_handle.next();
 
         if let Ok(packet) = packet {
@@ -102,17 +105,20 @@ pub fn receive_packets(
                     //match guard.map.get_mut(&addr_pair) {
                     match guard.get_mut(&addr_pair) {
                         Some(v) => {
-                            v.0 += packet.get_len();
-                            v.2 = packet.get_ts().to_string();
+                            /*v.0 += packet.get_len();
+                            v.2 = packet.get_ts().to_string();*/
+                            v.add_to_bytes(packet.get_len());
+                            v.set_end_ts(packet.get_ts().to_string())
                         }
                         None => {
                             guard.insert(
                                 addr_pair,
-                                (
+                                /*(
                                     packet.get_len(),
                                     packet.get_ts().to_string(),
                                     packet.get_ts().to_string(),
-                                ),
+                                ),*/
+                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string())
                             );
                         }
                     }
@@ -176,14 +182,44 @@ pub fn resume() {
 
 pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
 
+
     let mut addr_pair: key = key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        0,
+        0
     );
 
     let headers = parsed_packet.get_headers();
 
+
+    let mut src_port= 0;
+    let mut dst_port= 0;
+
+
     headers.iter().for_each(|h| match h {
+        PacketHeader::Tcp(packet) => {
+            src_port = packet.source_port;
+            dst_port = packet.dest_port;
+        }
+        PacketHeader::Udp(packet) => {
+            src_port = packet.source_port;
+            dst_port = packet.dest_port
+        }
+        _ => {}
+    });
+
+    headers.iter().for_each(|h| match h {
+        PacketHeader::Ipv4(packet) => {
+            addr_pair = key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr), src_port, dst_port);
+        }
+        PacketHeader::Ipv6(packet) => {
+            addr_pair = key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr), src_port, dst_port);
+        }
+        _ => {}
+    });
+
+    /*headers.iter().for_each(|h| match h {
         PacketHeader::Ipv4(packet) => {
             addr_pair = key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr));
         }
@@ -191,7 +227,7 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
             addr_pair = key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr));
         }
         _ => {}
-    });
+    });*/
 
     addr_pair
 }

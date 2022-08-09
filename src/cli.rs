@@ -1,4 +1,3 @@
-use crate::sniffer;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
