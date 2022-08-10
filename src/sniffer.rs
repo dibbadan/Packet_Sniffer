@@ -1,6 +1,6 @@
 use crate::parser::{PacketHeader, ParsedPacket};
-use crate::shared_data;
-use crate::shared_data::{key, SharedData, value};
+use crate::{shared_data, task};
+use crate::shared_data::{key, SharedData, SharedPause, value};
 use colored::Colorize;
 use pcap::{Active, Capture, Device, Error, Packet};
 use std::collections::HashMap;
@@ -31,22 +31,32 @@ pub fn list_devices() -> Vec<Device> {
     devices
 }
 
-pub fn sniff(
+#[tokio::main]
+pub async fn sniff(
     device: Device,
     interval: u32,
     report_file: &str,
-    shared_data: Arc<SharedData>,
 ) {
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
+    let mappa = SharedData::new();
+    let mappa_clone = Arc::clone(&mappa);
+    let pause = SharedPause::new();
+    let pause_clone = Arc::clone(&pause);
 
-    get_packets(tx, device);
 
-    receive_packets(rx, interval, report_file, shared_data);
+    get_packets(tx, device, pause_clone);
 
-    get_commands();
+    receive_packets(rx, interval, report_file, mappa_clone);
+
+    tokio::spawn(async move {
+        task(2, mappa).await;
+    });
+
+    //must be at the end
+    get_commands(pause);
 }
 
-pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
+pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) {
     //let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
     let mut cap_handle = device.open().unwrap();
 
@@ -56,6 +66,8 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
 
     thread::spawn(move || loop {
         //let mut cap_handle = cap_handle.lock().unwrap();
+        //let mut state = pause.lock.lock().unwrap();
+        //state = pause.cv.wait_while(state, |s| *s == true).unwrap();
         let mut packet = cap_handle.next();
 
         if let Ok(packet) = packet {
@@ -81,8 +93,6 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
             dbg!("End of packet stream, shutting down reader thread!");
             break;
         }
-
-
 
     });
 }
@@ -133,42 +143,27 @@ pub fn receive_packets(
     });
 }
 
-pub fn get_commands() {
+pub fn get_commands(pause: Arc<SharedPause>) {
+    let mut active = true;
     loop {
-        println!("Please enter s to stop the sniffing");
-        let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
-        match r {
-            Ok(_) => {
-                let mut c = buffer.chars().next();
-                match c {
-                    Some(c) if c == 's' => {
-                        //aggiorno la variabile di controllo
-                        println!("{}", c);
-                        resume();
-                    }
-                    _ => {
-                        println!("input non riconosciuto");
-                    }
-                }
-            }
-            Err(_) => println!("input non riconosciuto"),
+        match active {
+            true => println!("Please enter s to stop the sniffing"),
+            false => println!("Please enter r to resume the sniffing")
         }
-    }
-}
-
-pub fn resume() {
-    loop {
-        println!("Please enter r to resume the sniffing");
         let mut buffer = String::new();
         let mut r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
                 let mut c = buffer.chars().next();
                 match c {
-                    Some(c) if c == 'r' => {
-                        //aggiorno la variabile di controllo
-                        break ();
+                    Some(c) if active == true && c == 's' => {
+                        active = false;
+                        let mut state = pause.lock.lock().unwrap();
+                        *state = true;
+
+                    }
+                    Some(c) if active == false && c == 'r' => {
+                        active = true;
                     }
                     _ => {
                         println!("input non riconosciuto");

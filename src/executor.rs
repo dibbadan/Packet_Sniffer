@@ -23,8 +23,6 @@ pub async fn task(secs: u64, shared_data: Arc<SharedData>) {
     loop {
         interval.tick().await;
 
-        let mut guard = shared_data.m.map.lock().unwrap();
-
         let file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -55,6 +53,7 @@ pub async fn task(secs: u64, shared_data: Arc<SharedData>) {
         /*let json_string =
             serde_yaml::to_string(guard.deref()).expect("Error in serializing the data structure!");*/
 
+        let mut guard = shared_data.m.map.lock().unwrap();
 
         for (k,v) in guard.deref() {
             let my_str = format!("{}{}\n", k.to_string(), v.to_string());

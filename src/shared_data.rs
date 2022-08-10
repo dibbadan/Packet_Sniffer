@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 
 /*pub struct MapData {
     pub map: Mutex<HashMap<key, (u32, String, String)>>,
@@ -112,6 +112,22 @@ impl SharedData {
         Arc::new(
             SharedData {
                 m: MapData::new()
+            }
+        )
+    }
+}
+
+pub struct SharedPause {
+    pub lock: Mutex<bool>,
+    pub cv: Condvar
+}
+
+impl SharedPause {
+    pub fn new() -> Arc<Self> {
+        Arc::new(
+            SharedPause {
+                lock: Mutex::new(false),
+                cv: Condvar::new()
             }
         )
     }
