@@ -1,6 +1,6 @@
 use crate::parser::{PacketHeader, ParsedPacket};
-use crate::shared_data;
-use crate::shared_data::{key, SharedData, value};
+use crate::{shared_data, task};
+use crate::shared_data::{key, SharedData, SharedPause, value};
 use colored::Colorize;
 use pcap::{Active, Capture, Device, Error, Packet};
 use std::collections::HashMap;
@@ -16,37 +16,54 @@ use pktparse::tcp::TcpHeader;
 
 const MAX_THREADS: usize = 10;
 
+
+
 pub fn list_devices() -> Vec<Device> {
     let mut devices: Vec<Device> = vec![];
     devices = Device::list().unwrap();
 
     println!("\n");
     for (index, device) in devices.iter().enumerate() {
+        // println!(
+        //     "Device #{} | Name: {} | Description: {:?}",
+        //     index, device.name, device.desc
+        // );
         println!(
-            "Device #{} | Name: {} | Description: {:?}",
-            index, device.name, device.desc
+            "Device #{} | Name: {}",
+            index, device.name
         );
     }
 
     devices
 }
 
-pub fn sniff(
+#[tokio::main]
+pub async fn sniff(
     device: Device,
     interval: u32,
     report_file: &str,
-    shared_data: Arc<SharedData>,
 ) {
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
+    let mappa = SharedData::new();
+    let mappa_clone = Arc::clone(&mappa);
+    let pause = SharedPause::new();
+    let pause_clone = Arc::clone(&pause);
+    let pausa_clone_task = Arc::clone(&pause);
 
-    get_packets(tx, device);
+    get_packets(tx, device, pause_clone);
 
-    receive_packets(rx, interval, report_file, shared_data);
+    receive_packets(rx, interval, report_file, mappa_clone);
 
-    get_commands();
+
+    tokio::spawn(async move {
+        task(2, mappa, pausa_clone_task).await;
+    });
+
+    //must be at the end
+    get_commands(pause);
 }
 
-pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
+pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) {
     //let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
     let mut cap_handle = device.open().unwrap();
 
@@ -56,33 +73,44 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device) {
 
     thread::spawn(move || loop {
         //let mut cap_handle = cap_handle.lock().unwrap();
+        //let mut state = pause.lock.lock().unwrap();
+        //state = pause.cv.wait_while(state, |s| *s == true).unwrap();
+        
         let mut packet = cap_handle.next();
 
-        if let Ok(packet) = packet {
-            let data = packet.data.to_owned();
-            let len = packet.header.len;
-            let ts: String = format!(
-                "{}.{:06}",
-                &packet.header.ts.tv_sec, &packet.header.ts.tv_usec
-            );
+        let mut state = pause.lock.lock().unwrap();
 
-            let parsed_packet = parser.parse_packet(data, len, ts);
+    
 
-            match parsed_packet {
-                Ok(parsed_packet) => {
-                    //println!("{}", format!("Thread is sending packet to channel!").cyan());
-                    tx.send(parsed_packet).unwrap();
+        if *state != true {
+            
+            if let Ok(packet) = packet {
+                let data = packet.data.to_owned();
+                let len = packet.header.len;
+                let ts: String = format!(
+                    "{}.{:06}",
+                    &packet.header.ts.tv_sec, &packet.header.ts.tv_usec
+                );
+
+                let parsed_packet = parser.parse_packet(data, len, ts);
+
+                match parsed_packet {
+                    Ok(parsed_packet) => {
+                        //println!("{}", format!("Thread is sending packet to channel!").cyan());
+                        tx.send(parsed_packet).unwrap();
+                    }
+                    Err(err) => {
+                        println!("ERROR : {}", err);
+                    }
                 }
-                Err(err) => {
-                    println!("ERROR : {}", err);
-                }
+            } else {
+                dbg!("End of packet stream, shutting down reader thread!");
+                break;
             }
-        } else {
-            dbg!("End of packet stream, shutting down reader thread!");
-            break;
         }
-
-
+        
+        
+        state = pause.cv.wait_while(state, |s| *s == true).unwrap();
 
     });
 }
@@ -133,42 +161,31 @@ pub fn receive_packets(
     });
 }
 
-pub fn get_commands() {
+pub fn get_commands(pause: Arc<SharedPause>) {
+    let mut active = true;
     loop {
-        println!("Please enter s to stop the sniffing");
-        let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
-        match r {
-            Ok(_) => {
-                let mut c = buffer.chars().next();
-                match c {
-                    Some(c) if c == 's' => {
-                        //aggiorno la variabile di controllo
-                        println!("{}", c);
-                        resume();
-                    }
-                    _ => {
-                        println!("input non riconosciuto");
-                    }
-                }
-            }
-            Err(_) => println!("input non riconosciuto"),
+        match active {
+            true => println!("Please enter s to stop the sniffing"),
+            false => println!("Please enter r to resume the sniffing")
         }
-    }
-}
-
-pub fn resume() {
-    loop {
-        println!("Please enter r to resume the sniffing");
         let mut buffer = String::new();
         let mut r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
                 let mut c = buffer.chars().next();
                 match c {
-                    Some(c) if c == 'r' => {
-                        //aggiorno la variabile di controllo
-                        break ();
+                    Some(c) if active == true && c == 's' => {
+                        active = false;
+                        let mut state = pause.lock.lock().unwrap();
+                        *state = true;
+
+                    }
+                    Some(c) if active == false && c == 'r' => {
+                        active = true;
+                        let mut state = pause.lock.lock().unwrap();
+                        *state = false;
+                        pause.cv.notify_all();
+
                     }
                     _ => {
                         println!("input non riconosciuto");

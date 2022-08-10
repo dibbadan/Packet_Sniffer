@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 
 /*pub struct MapData {
     pub map: Mutex<HashMap<key, (u32, String, String)>>,
@@ -40,7 +40,7 @@ impl value {
 
 impl Display for value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Total_Bytes = {}\nStart_ts = {}\nEnd_ts = {}\n", self.0.to_string(), self.1, self.2)
+        write!(f, " | {0: <15} | {1: <30} | {2: <30}", self.0.to_string(), self.1, self.2)
     }
 }
 
@@ -58,12 +58,18 @@ impl key {
 
 
 impl Display for key {
+    /*
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "\nSRC_ADDR = {}\nDST_ADDR = {}\nSRC_PORT = {}\nDST_PORT = {}\n", self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
     }
+     */
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{0: <20} | {1: <20} | {2: <15} | {3: <15}"
+               , self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
+    }
 }
 
-/*impl Serialize for key {
+impl Serialize for key {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -80,8 +86,7 @@ impl Serialize for value {
         serializer.serialize_str(&format!(
             "TOTAL_BYTES = {}, START_TS = {}, END_TS = {}", self.0.to_string(), self.1, self.2))
     }
-}*/
-
+}
 
 
 
@@ -112,6 +117,22 @@ impl SharedData {
         Arc::new(
             SharedData {
                 m: MapData::new()
+            }
+        )
+    }
+}
+
+pub struct SharedPause {
+    pub lock: Mutex<bool>,
+    pub cv: Condvar
+}
+
+impl SharedPause {
+    pub fn new() -> Arc<Self> {
+        Arc::new(
+            SharedPause {
+                lock: Mutex::new(false),
+                cv: Condvar::new()
             }
         )
     }
