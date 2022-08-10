@@ -40,7 +40,7 @@ impl value {
 
 impl Display for value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Total_Bytes = {}\nStart_ts = {}\nEnd_ts = {}\n", self.0.to_string(), self.1, self.2)
+        write!(f, " | {0: <15} | {1: <30} | {2: <30}", self.0.to_string(), self.1, self.2)
     }
 }
 
@@ -58,8 +58,14 @@ impl key {
 
 
 impl Display for key {
+    /*
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "\nSRC_ADDR = {}\nDST_ADDR = {}\nSRC_PORT = {}\nDST_PORT = {}\n", self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
+    }
+     */
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{0: <20} | {1: <20} | {2: <15} | {3: <15}"
+               , self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
     }
 }
 
