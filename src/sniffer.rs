@@ -1,5 +1,5 @@
 use crate::parser::{PacketHeader, ParsedPacket};
-use crate::{shared_data, task};
+use crate::{shared_data, task, inputs};
 use crate::shared_data::{key, SharedData, SharedPause, value};
 use colored::Colorize;
 use pcap::{Active, Capture, Device, Error, Packet};
@@ -22,25 +22,13 @@ pub fn list_devices() -> Vec<Device> {
     let mut devices: Vec<Device> = vec![];
     devices = Device::list().unwrap();
 
-    println!("\n");
-    for (index, device) in devices.iter().enumerate() {
-        // println!(
-        //     "Device #{} | Name: {} | Description: {:?}",
-        //     index, device.name, device.desc
-        // );
-        println!(
-            "Device #{} | Name: {}",
-            index, device.name
-        );
-    }
-
     devices
 }
 
 #[tokio::main]
 pub async fn sniff(
     device: Device,
-    interval: u32,
+    interval: u64,
     report_file: &str,
 ) {
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
@@ -52,15 +40,15 @@ pub async fn sniff(
 
     get_packets(tx, device, pause_clone);
 
-    receive_packets(rx, interval, report_file, mappa_clone);
+    receive_packets(rx, mappa_clone);
 
 
     tokio::spawn(async move {
-        task(2, mappa, pausa_clone_task).await;
+        task(interval, "report.txt", mappa, pausa_clone_task).await;
     });
 
     //must be at the end
-    get_commands(pause);
+    inputs::get_commands(pause);
 }
 
 pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) {
@@ -118,8 +106,6 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
 
 pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
-    interval: u32,
-    report_file: &str,
     shared_data: Arc<SharedData>,
 ) {
     print_headers();
@@ -161,41 +147,7 @@ pub fn receive_packets(
     });
 }
 
-pub fn get_commands(pause: Arc<SharedPause>) {
-    let mut active = true;
-    loop {
-        match active {
-            true => println!("Please enter s to stop the sniffing"),
-            false => println!("Please enter r to resume the sniffing")
-        }
-        let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
-        match r {
-            Ok(_) => {
-                let mut c = buffer.chars().next();
-                match c {
-                    Some(c) if active == true && c == 's' => {
-                        active = false;
-                        let mut state = pause.lock.lock().unwrap();
-                        *state = true;
 
-                    }
-                    Some(c) if active == false && c == 'r' => {
-                        active = true;
-                        let mut state = pause.lock.lock().unwrap();
-                        *state = false;
-                        pause.cv.notify_all();
-
-                    }
-                    _ => {
-                        println!("input non riconosciuto");
-                    }
-                }
-            }
-            Err(_) => println!("input non riconosciuto"),
-        }
-    }
-}
 
 pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
 

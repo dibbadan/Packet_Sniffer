@@ -15,7 +15,7 @@ use tokio::{
 
 
 
-pub async fn task(secs: u64, shared_data: Arc<SharedData>, pause: Arc<SharedPause>) {
+pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pause: Arc<SharedPause>) {
 
     
 
@@ -32,7 +32,7 @@ pub async fn task(secs: u64, shared_data: Arc<SharedData>, pause: Arc<SharedPaus
                 .write(true)
                 .create(true)
                 .append(true)
-                .open("report.txt")
+                .open(report_file)
                 .unwrap();
 
             let mut file = LineWriter::new(file);

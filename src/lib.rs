@@ -4,6 +4,7 @@ mod parser;
 mod shared_data;
 mod sniffer;
 mod dns;
+mod inputs;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -15,25 +16,29 @@ use std::thread;
 use crate::executor::task;
 use crate::shared_data::{key, MapData, SharedData};
 use cli::Cli;
+use crate::inputs::get_device;
 
 pub fn sniffer() {
 
 
 
     let cli = Cli::parse();
-    let (device, interval, report_file) = Cli::get_parameters(&cli);
+    let (interval, report_file) = Cli::get_parameters(&cli);
     
     println!(
-        "PASSED ARGUMENTS = {:?}, {:?}, {:?}",
-        device, interval, report_file
+        "PASSED ARGUMENTS = {:?}, {:?}",
+        interval, report_file
     );
 
     
     let _devices = sniffer::list_devices();
 
 
+    let device = get_device(_devices);
 
-    sniffer::sniff(_devices[0].clone(), interval, report_file);
+
+
+    sniffer::sniff(device, interval, report_file);
 
 
 
