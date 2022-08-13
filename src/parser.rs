@@ -10,6 +10,8 @@ use pktparse::*;
 use std::string::ToString;
 use crate::dns::DnsPacket;
 
+
+
 #[derive(Debug)]
 pub enum PacketHeader {
     Ethernet(EthernetFrame),
@@ -58,6 +60,41 @@ impl ParsedPacket {
     pub fn get_ts(&self) -> &String {
         &self.timestamp
     }
+
+    pub fn get_protocol(&self)-> String{
+        
+        let mut protocol = "".to_string();
+
+    self.headers.iter().for_each(|h| match h {
+        PacketHeader::Tcp(packet) => {
+            protocol = "TCP".to_string();
+        }
+        PacketHeader::Udp(packet) => {
+            protocol = "UDP".to_string(); 
+        }
+        _ => {}
+    });
+
+    protocol    
+   
+}
+
+        /* 
+        let mut prot;
+        for i in self.headers {
+            prot = match i {
+                
+
+                PacketHeader::Dns(_) => "DNS".to_string(),
+                PacketHeader::Tcp(_) => "TCP".to_string(),
+                PacketHeader::Udp(_) => "UDP".to_string(),
+                _ => "none".to_string() //println!(" no protocol")
+            }
+        }
+        Ok(prot)
+        */
+        
+ 
 
     pub fn get_headers(&self) -> &Vec<PacketHeader> {
         &self.headers

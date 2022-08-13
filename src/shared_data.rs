@@ -21,10 +21,10 @@ pub struct MapData {
 //pub struct key(IpAddr, IpAddr);
 pub struct key(IpAddr, IpAddr, u16, u16);
 
-pub struct value(u32, String, String);
+pub struct value(u32, String, String, String);
 
 impl value {
-    pub fn new(bytes: u32, start_ts: String, end_ts: String) -> Self {value(bytes, start_ts, end_ts)}
+    pub fn new(bytes: u32, start_ts: String, end_ts: String, protocol:String) -> Self {value(bytes, start_ts, end_ts, protocol)}
     pub fn add_to_bytes(&mut self, bytes:u32) {
         self.0 += bytes;
     }
@@ -36,11 +36,14 @@ impl value {
     pub fn set_end_ts(&mut self, end_ts: String) {
         self.2 = end_ts;
     }
+    pub fn set_protocol(&mut self, protocol:String){
+        self.3 = protocol;
+    }
 }
 
 impl Display for value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, " | {0: <15} | {1: <30} | {2: <30}", self.0.to_string(), self.1, self.2)
+        write!(f, " | {0: <15} | {1: <30} | {2: <30} | {3: <30} ", self.0.to_string(), self.1, self.2, self.3)
     }
 }
 
@@ -84,7 +87,7 @@ impl Serialize for value {
             S: Serializer,
     {
         serializer.serialize_str(&format!(
-            "TOTAL_BYTES = {}, START_TS = {}, END_TS = {}", self.0.to_string(), self.1, self.2))
+            "TOTAL_BYTES = {}, START_TS = {}, END_TS = {}, PROT = {} ", self.0.to_string(), self.1, self.2, self.3))
     }
 }
 

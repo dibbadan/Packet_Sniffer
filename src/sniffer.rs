@@ -132,7 +132,7 @@ pub fn receive_packets(
                                     packet.get_ts().to_string(),
                                     packet.get_ts().to_string(),
                                 ),*/
-                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string())
+                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
                             );
                         }
                     }

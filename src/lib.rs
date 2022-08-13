@@ -6,6 +6,7 @@ mod sniffer;
 mod dns;
 mod inputs;
 
+
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
