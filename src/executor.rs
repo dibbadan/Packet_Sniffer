@@ -1,24 +1,24 @@
-use std::fmt::Debug;
+//use std::fmt::Debug;
 use chrono::Timelike;
 use std::fs::OpenOptions;
 use std::io::{LineWriter, Write};
 use std::ops::Deref;
-use std::sync::{Arc};
+use std::sync::Arc;
 use std::time::Duration;
 
 
 use crate::shared_data::{SharedData, SharedPause};
 use colored::Colorize;
 use tokio::{
-    time::{interval},
+    time::interval,
 };
 
 
 
-pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pause: Arc<SharedPause>) {
+pub async fn task(secs: u64, report_file:String, shared_data: Arc<SharedData>, pause: Arc<SharedPause>) {
 
     
-
+    
     let mut interval = interval(Duration::from_secs(secs));
     interval.tick().await; // skip first tick
     loop {
@@ -26,13 +26,13 @@ pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pa
 
         interval.tick().await;
 
-        let mut state = pause.lock.lock().unwrap();
+        let state = pause.lock.lock().unwrap();
         if *state != true {
                 let file = OpenOptions::new()
                 .write(true)
                 .create(true)
-                .append(true)
-                .open(report_file)
+                .append(false)
+                .open(&report_file)
                 .unwrap();
 
             let mut file = LineWriter::new(file);
@@ -47,8 +47,8 @@ pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pa
                 generating_at.second()
             );
             let report_header = format!(
-                "{0: <20} | {1: <20} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} |",
-                "SRC_ADDR", "DST_ADDR", "SRC_PORT", "DST_PORT", "Total_Bytes", "Start_ts", "End_ts"
+                "{0: <20} | {1: <20} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} | {7: <30}",
+                "SRC_ADDR", "DST_ADDR", "SRC_PORT", "DST_PORT", "Total_Bytes", "Start_ts", "End_ts", "Protocol"
             );
 
             file.write_all(time_header.as_bytes()).unwrap();
@@ -58,7 +58,7 @@ pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pa
 
             
             
-            let mut guard = shared_data.m.map.lock().unwrap();
+            let guard = shared_data.m.map.lock().unwrap();
 
             // Convert the Hashmap struct to a JSON string.
             // let json_string =
@@ -81,7 +81,7 @@ pub async fn task(secs: u64, report_file: &str, shared_data: Arc<SharedData>, pa
 
         }
         
-        state = pause.cv.wait_while(state, |s| *s == true).unwrap();
+        //state = pause.cv.wait_while(state, |s| *s == true).unwrap();
         
     }
 }

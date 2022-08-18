@@ -1,20 +1,23 @@
-use crate::parser::{PacketHeader, ParsedPacket};
-use crate::{shared_data, task, inputs};
-use crate::shared_data::{key, SharedData, SharedPause, value};
-use colored::Colorize;
-use pcap::{Active, Capture, Device, Error, Packet};
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::ops::Deref;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::sleep;
-use std::time::Duration;
-use std::{io, thread};
-use pktparse::ip::IPProtocol;
-use pktparse::tcp::TcpHeader;
 
-const MAX_THREADS: usize = 10;
+use crate::interface::inputs; //cli
+use crate::parser::{PacketHeader, ParsedPacket};
+use std::thread; // io
+use crate::task; // shared_data, task, interface}
+use crate::shared_data::{Key, SharedData, SharedPause, Value};
+use pcap::{Device, Error};
+use std::net::{IpAddr, Ipv4Addr }; // Ipv6Addr
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc }; // Mutex
+
+//use colored::Colorize;
+//use pcap::{Active, Capture, Packet};
+//use std::collections::HashMap;
+//use std::thread::sleep;
+//use std::time::Duration;
+//use pktparse::ip::IPProtocol;
+//use pktparse::tcp::TcpHeader;
+
+//const MAX_THREADS: usize = 10;
 
 
 
@@ -34,7 +37,7 @@ pub fn list_devices() -> Result<Vec<Device>, Error> {
 pub async fn sniff(
     device: Device,
     interval: u64,
-    report_file: &str,
+    report_file: String,
 ) {
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
     let mappa = SharedData::new();
@@ -49,7 +52,7 @@ pub async fn sniff(
 
 
     tokio::spawn(async move {
-        task(interval, "report.txt", mappa, pausa_clone_task).await;
+        task(interval, report_file, mappa, pausa_clone_task).await;
     });
 
     //must be at the end
@@ -146,7 +149,7 @@ pub fn receive_packets(
                                     packet.get_ts().to_string(),
                                     packet.get_ts().to_string(),
                                 ),*/
-                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
+                                Value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
                             );
                         }
                     }
@@ -163,10 +166,10 @@ pub fn receive_packets(
 
 
 
-pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
+pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<Key,Error>{
 
 
-    let mut addr_pair: key = key::new(
+    let mut addr_pair: Key = Key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         0,
@@ -194,10 +197,10 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
 
     headers.iter().for_each(|h| match h {
         PacketHeader::Ipv4(packet) => {
-            addr_pair = key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr), src_port, dst_port);
+            addr_pair = Key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr), src_port, dst_port);
         }
         PacketHeader::Ipv6(packet) => {
-            addr_pair = key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr), src_port, dst_port);
+            addr_pair = Key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr), src_port, dst_port);
         }
         _ => {}
     });
@@ -265,7 +268,7 @@ fn print_headers() {
         "{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35} |",
         "Source IP", "Source Port", "Dest IP", "Dest Port", "Protocol", "Length", "Timestamp"
     );
-    println!("{:-^1$}", "-", 165,);
+    println!("{:-^1$}", "-", 165);
 }
 
 

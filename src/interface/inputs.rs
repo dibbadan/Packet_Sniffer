@@ -11,10 +11,10 @@ pub fn get_commands(pause: Arc<SharedPause>) {
             false => println!("Please enter r to resume the sniffing")
         }
         let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
+        let r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
-                let mut c = buffer.chars().next();
+                let c = buffer.chars().next();
                 match c {
                     Some(c) if active == true && c == 's' => {
                         active = false;
@@ -50,10 +50,10 @@ pub fn get_device(devices: Vec<Device>) -> Device {
     println!("Insert the number of the device you want to sniff on");
     loop {
         let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
+        let  r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
-                let mut num = buffer.trim().parse::<usize>();
+                let num = buffer.trim().parse::<usize>();
                 match num {
                     Ok(n) if n < devices.len() => {
                         return devices[n].clone();

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex};
 
 /*pub struct MapData {
     pub map: Mutex<HashMap<key, (u32, String, String)>>,
@@ -11,7 +11,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 */
 
 pub struct MapData {
-    pub map: Mutex<HashMap<key, value>>,
+    pub map: Mutex<HashMap<Key, Value>>,
 }
 
 
@@ -19,29 +19,31 @@ pub struct MapData {
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq)]
 //pub struct key(IpAddr, IpAddr);
-pub struct key(IpAddr, IpAddr, u16, u16);
+pub struct Key(IpAddr, IpAddr, u16, u16);
 
-pub struct value(u32, String, String, String);
+pub struct Value(u32, String, String, String);
 
-impl value {
-    pub fn new(bytes: u32, start_ts: String, end_ts: String, protocol:String) -> Self {value(bytes, start_ts, end_ts, protocol)}
+impl Value {
+    pub fn new(bytes: u32, start_ts: String, end_ts: String, protocol:String) -> Self {Value(bytes, start_ts, end_ts, protocol)}
     pub fn add_to_bytes(&mut self, bytes:u32) {
         self.0 += bytes;
     }
-
+/* 
     pub fn set_start_ts(&mut self, start_ts: String) {
         self.1 = start_ts;
     }
-
+*/
     pub fn set_end_ts(&mut self, end_ts: String) {
         self.2 = end_ts;
     }
+/* 
     pub fn set_protocol(&mut self, protocol:String){
         self.3 = protocol;
     }
+*/
 }
 
-impl Display for value {
+impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, " | {0: <15} | {1: <30} | {2: <30} | {3: <30} ", self.0.to_string(), self.1, self.2, self.3)
     }
@@ -53,14 +55,14 @@ impl Display for value {
     }
 }*/
 
-impl key {
+impl Key {
     pub fn new(src: IpAddr, dst: IpAddr, src_port: u16, dst_port: u16) -> Self {
-        key(src, dst, src_port, dst_port)
+        Key(src, dst, src_port, dst_port)
     }
 }
 
 
-impl Display for key {
+impl Display for Key {
     /*
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "\nSRC_ADDR = {}\nDST_ADDR = {}\nSRC_PORT = {}\nDST_PORT = {}\n", self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
@@ -72,7 +74,7 @@ impl Display for key {
     }
 }
 
-impl Serialize for key {
+impl Serialize for Key {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -81,7 +83,7 @@ impl Serialize for key {
     }
 }
 
-impl Serialize for value {
+impl Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
@@ -104,7 +106,7 @@ impl Serialize for value {
 impl MapData {
     pub fn new() -> Self {
         MapData {
-            map: Mutex::new(HashMap::<key, value>::new()),
+            map: Mutex::new(HashMap::<Key, Value>::new()),
         }
     }
 }
