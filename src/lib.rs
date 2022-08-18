@@ -32,7 +32,7 @@ pub fn sniffer() {
     );
 
     
-    let _devices = sniffer::list_devices();
+    let _devices = sniffer::list_devices().unwrap();
 
 
     let device = get_device(_devices);

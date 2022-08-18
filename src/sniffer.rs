@@ -18,11 +18,16 @@ const MAX_THREADS: usize = 10;
 
 
 
-pub fn list_devices() -> Vec<Device> {
+pub fn list_devices() -> Result<Vec<Device>, Error> {
     let mut devices: Vec<Device> = vec![];
-    devices = Device::list().unwrap();
 
-    devices
+    devices = match Device::list() {
+        Ok(devices ) => devices,
+        Err(error) => panic!("Error: {:?}", error)
+    };
+
+    Ok(devices)
+
 }
 
 #[tokio::main]
@@ -53,7 +58,10 @@ pub async fn sniff(
 
 pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) {
     //let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
-    let mut cap_handle = device.open().unwrap();
+    let mut cap_handle = match device.open() {
+        Ok(cap_handle) => cap_handle,
+        Err(error) => panic!("Error {:?}", error)
+    };
 
     let parser = ParsedPacket::new();
     let tx = tx.clone();
@@ -64,7 +72,10 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
         //let mut state = pause.lock.lock().unwrap();
         //state = pause.cv.wait_while(state, |s| *s == true).unwrap();
         
-        let mut packet = cap_handle.next();
+        let mut packet = match cap_handle.next() {
+            Ok(packet) => packet,
+            Err(error) => panic!("Error {:?}", error)
+        };
 
         let mut state = pause.lock.lock().unwrap();
 
@@ -72,7 +83,7 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
 
         if *state != true {
             
-            if let Ok(packet) = packet {
+            if let packet = packet{
                 let data = packet.data.to_owned();
                 let len = packet.header.len;
                 let ts: String = format!(
@@ -115,7 +126,10 @@ pub fn receive_packets(
 
             match packet {
                 packet => {
-                    let addr_pair = get_addr(&packet);
+                    let addr_pair = match get_addr(&packet) {
+                      Ok(addr_pair) => addr_pair,
+                      Err(error) => panic!("Error {:?}", error)
+                    };
                     //match guard.map.get_mut(&addr_pair) {
                     match guard.get_mut(&addr_pair) {
                         Some(v) => {
@@ -149,7 +163,7 @@ pub fn receive_packets(
 
 
 
-pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
+pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
 
 
     let mut addr_pair: key = key::new(
@@ -198,7 +212,7 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
         _ => {}
     });*/
 
-    addr_pair
+    Ok(addr_pair)
 }
 
 pub fn show_to_console(parsed_packet: &ParsedPacket) {
