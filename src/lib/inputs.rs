@@ -1,14 +1,15 @@
+use crate::lib::shared_data::SharedPause;
+use pcap::Device;
 use std::io;
 use std::sync::Arc;
-use pcap::Device;
-use crate::shared_data::SharedPause;
+use tokio::task::JoinHandle;
 
 pub fn get_commands(pause: Arc<SharedPause>) {
     let mut active = true;
     loop {
         match active {
             true => println!("Please enter s to stop the sniffing"),
-            false => println!("Please enter r to resume the sniffing")
+            false => println!("Please enter r to resume the sniffing"),
         }
         let mut buffer = String::new();
         let mut r = io::stdin().read_line(&mut buffer);
@@ -20,14 +21,12 @@ pub fn get_commands(pause: Arc<SharedPause>) {
                         active = false;
                         let mut state = pause.lock.lock().unwrap();
                         *state = true;
-
                     }
                     Some(c) if active == false && c == 'r' => {
                         active = true;
                         let mut state = pause.lock.lock().unwrap();
                         *state = false;
                         pause.cv.notify_all();
-
                     }
                     _ => {
                         println!("input non riconosciuto");
@@ -38,6 +37,8 @@ pub fn get_commands(pause: Arc<SharedPause>) {
         }
     }
 }
+
+
 
 pub fn get_device(devices: Vec<Device>) -> Device {
     println!("\n");

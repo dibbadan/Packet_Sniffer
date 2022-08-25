@@ -8,9 +8,7 @@ use pktparse::tcp::TcpHeader;
 use pktparse::udp::UdpHeader;
 use pktparse::*;
 use std::string::ToString;
-use crate::dns::DnsPacket;
-
-
+use crate::lib::dns::DnsPacket;
 
 #[derive(Debug)]
 pub enum PacketHeader {
@@ -19,7 +17,7 @@ pub enum PacketHeader {
     Ipv6(IPv6Header),
     Tcp(TcpHeader),
     Udp(UdpHeader),
-    Dns(DnsPacket)
+    Dns(DnsPacket),
 }
 
 impl ToString for PacketHeader {
@@ -61,40 +59,23 @@ impl ParsedPacket {
         &self.timestamp
     }
 
-    pub fn get_protocol(&self)-> String{
-        
+    pub fn get_protocol(&self) -> String {
         let mut protocol = "".to_string();
 
-    self.headers.iter().for_each(|h| match h {
-        PacketHeader::Tcp(packet) => {
-            protocol = "TCP".to_string();
-        }
-        PacketHeader::Udp(packet) => {
-            protocol = "UDP".to_string(); 
-        }
-        _ => {}
-    });
-
-    protocol    
-   
-}
-
-        /* 
-        let mut prot;
-        for i in self.headers {
-            prot = match i {
-                
-
-                PacketHeader::Dns(_) => "DNS".to_string(),
-                PacketHeader::Tcp(_) => "TCP".to_string(),
-                PacketHeader::Udp(_) => "UDP".to_string(),
-                _ => "none".to_string() //println!(" no protocol")
+        self.headers.iter().for_each(|h| match h {
+            PacketHeader::Tcp(packet) => {
+                protocol = "TCP".to_string();
             }
-        }
-        Ok(prot)
-        */
-        
- 
+            PacketHeader::Udp(packet) => {
+                protocol = "UDP".to_string();
+            }
+            _ => {}
+        });
+
+        protocol
+    }
+
+
 
     pub fn get_headers(&self) -> &Vec<PacketHeader> {
         &self.headers
@@ -154,7 +135,7 @@ impl ParsedPacket {
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error".to_string())
+                Err("Error parsing IPv4Header".to_string())
             }
         }
     }
@@ -172,7 +153,7 @@ impl ParsedPacket {
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error".to_string())
+                Err("Error parsing IPv6Header".to_string())
             }
         }
     }
@@ -185,11 +166,13 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match protocol_type {
             IPProtocol::TCP => {
-                self.parse_tcp(content, parsed_packet).expect("Error in parsing TCP");
+                self.parse_tcp(content, parsed_packet)
+                    .expect("Error in parsing TCP");
                 Ok(())
             }
             IPProtocol::UDP => {
-                self.parse_udp(content, parsed_packet).expect("Error in parsing UDP");
+                self.parse_udp(content, parsed_packet)
+                    .expect("Error in parsing UDP");
                 Ok(())
             }
             _ => {

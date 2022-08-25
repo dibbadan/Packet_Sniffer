@@ -1,10 +1,12 @@
-use Packet_Sniffer::sniffer;
+mod lib;
 
-/*#[tokio::main]
-async fn main() {
-    sniffer().await;
-}*/
+use pcap::Error;
+use lib::*;
+use crate::lib::lib::sniffer;
 
 fn main() {
-    sniffer();
+    match sniffer() {
+        Ok(()) => {},
+        Err(error) => panic!("{}", error.to_string())
+    }
 }

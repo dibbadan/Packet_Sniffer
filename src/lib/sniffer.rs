@@ -1,88 +1,78 @@
-use crate::parser::{PacketHeader, ParsedPacket};
-use crate::{shared_data, task, inputs};
-use crate::shared_data::{key, SharedData, SharedPause, value};
+use crate::lib::parser::{PacketHeader, ParsedPacket};
+use crate::lib::shared_data::{key, value, SharedData, SharedPause};
+use crate::lib::{inputs, shared_data, executor::task};
 use colored::Colorize;
-use pcap::{Active, Capture, Device, Error, Packet};
+use pcap::{Active, Capture, Dead, Device, Error, Packet};
+use pktparse::ip::IPProtocol;
+use pktparse::tcp::TcpHeader;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, RecvError, Sender};
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread::sleep;
+use std::thread::{current, sleep};
 use std::time::Duration;
-use std::{io, thread};
-use pktparse::ip::IPProtocol;
-use pktparse::tcp::TcpHeader;
-
-const MAX_THREADS: usize = 10;
-
-
+use std::{io, panic, thread};
+use tokio::task::JoinHandle;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
-    let mut devices: Vec<Device> = vec![];
 
-    devices = match Device::list() {
-        Ok(devices ) => devices,
-        Err(error) => panic!("Error: {:?}", error)
+    let r = Device::list();
+
+    let mut devices = match r {
+        Err(error) => return Err(error),
+        Ok(devices) => devices
     };
 
     Ok(devices)
-
 }
 
 #[tokio::main]
-pub async fn sniff(
-    device: Device,
-    interval: u64,
-    report_file: &str,
-) {
+pub async fn sniff(device: Device, interval: u64, report_file: &str) -> Result<(), Error> {
+
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
+
     let mappa = SharedData::new();
     let mappa_clone = Arc::clone(&mappa);
+
     let pause = SharedPause::new();
     let pause_clone = Arc::clone(&pause);
+
     let pausa_clone_task = Arc::clone(&pause);
 
-    get_packets(tx, device, pause_clone);
 
-    receive_packets(rx, mappa_clone);
+    get_packets(tx, device, pause_clone)?;
+    receive_packets(rx, mappa_clone)?;
 
-
-    tokio::spawn(async move {
-        task(interval, "report.txt", mappa, pausa_clone_task).await;
-    });
-
-    //must be at the end
     inputs::get_commands(pause);
+
+    Ok(())
 }
 
-pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) {
-    //let cap_handle = Arc::new(Mutex::new(device.open().unwrap()));
+pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) -> Result<(), Error> {
+
     let mut cap_handle = match device.open() {
         Ok(cap_handle) => cap_handle,
-        Err(error) => panic!("Error {:?}", error)
+        Err(error) => return Err(error)
+        //Err(error) => panic!("Error {:?}", error)
     };
 
     let parser = ParsedPacket::new();
     let tx = tx.clone();
-    //let cap_handle = cap_handle.clone();
 
     thread::spawn(move || loop {
-        //let mut cap_handle = cap_handle.lock().unwrap();
-        //let mut state = pause.lock.lock().unwrap();
-        //state = pause.cv.wait_while(state, |s| *s == true).unwrap();
-        
+
         let mut packet = match cap_handle.next() {
             Ok(packet) => packet,
-            Err(error) => panic!("Error {:?}", error)
+            Err(error) => panic!("{}", error.to_string())
         };
 
         let mut state = pause.lock.lock().unwrap();
 
-    
+
 
         if *state != true {
-            
+
             if let packet = packet{
                 let data = packet.data.to_owned();
                 let len = packet.header.len;
@@ -98,28 +88,32 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
                         //println!("{}", format!("Thread is sending packet to channel!").cyan());
                         tx.send(parsed_packet).unwrap();
                     }
-                    Err(err) => {
-                        println!("ERROR : {}", err);
+                    Err(error) => {
+                        panic!("{}", error.to_string());
                     }
                 }
             } else {
-                dbg!("End of packet stream, shutting down reader thread!");
-                break;
+                panic!("End of packet stream, shutting down sender thread!");
             }
         }
-        
-        
+
+
         state = pause.cv.wait_while(state, |s| *s == true).unwrap();
 
     });
+
+    Ok(())
+
 }
 
 
 pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
     shared_data: Arc<SharedData>,
-) {
+) -> Result<(), Error> {
+
     print_headers();
+
     thread::spawn(move || {
         for packet in rx.iter() {
             let mut guard = shared_data.m.map.lock().unwrap();
@@ -127,25 +121,18 @@ pub fn receive_packets(
             match packet {
                 packet => {
                     let addr_pair = match get_addr(&packet) {
-                      Ok(addr_pair) => addr_pair,
-                      Err(error) => panic!("Error {:?}", error)
+                        Ok(addr_pair) => addr_pair,
+                        Err(error) => panic!("{}", error.to_string())
                     };
-                    //match guard.map.get_mut(&addr_pair) {
+
                     match guard.get_mut(&addr_pair) {
                         Some(v) => {
-                            /*v.0 += packet.get_len();
-                            v.2 = packet.get_ts().to_string();*/
                             v.add_to_bytes(packet.get_len());
                             v.set_end_ts(packet.get_ts().to_string())
                         }
                         None => {
                             guard.insert(
                                 addr_pair,
-                                /*(
-                                    packet.get_len(),
-                                    packet.get_ts().to_string(),
-                                    packet.get_ts().to_string(),
-                                ),*/
                                 value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
                             );
                         }
@@ -157,11 +144,10 @@ pub fn receive_packets(
             }
 
         }
-        dbg!("End of packet stream, shutting down receiver thread!");
     });
+
+    Ok(())
 }
-
-
 
 pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
 
@@ -226,9 +212,7 @@ pub fn show_to_console(parsed_packet: &ParsedPacket) {
     );
 }
 
-pub fn get_packet_meta(
-    parsed_packet: &ParsedPacket,
-) -> (String, String, String, String) {
+pub fn get_packet_meta(parsed_packet: &ParsedPacket) -> (String, String, String, String) {
     let mut src_addr = "".to_string();
     let mut dst_addr = "".to_string();
     let mut src_port = "".to_string();
@@ -267,8 +251,6 @@ fn print_headers() {
     );
     println!("{:-^1$}", "-", 165,);
 }
-
-
 
 /*
     pub fn get_packet_meta(
