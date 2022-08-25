@@ -18,7 +18,7 @@ pub fn sniffer() -> Result<(), Error> {
 
     let cli = Cli::parse();
 
-    let (interval, report_file) = Cli::get_parameters(&cli);
+    let (interval, report_file) = Cli::get_parameters(cli);
 
     let devices = sniffer::list_devices()?;
 

@@ -150,3 +150,17 @@ impl SharedPause {
         })
     }
 }
+
+pub struct SharedEnd {
+    pub lock: Mutex<usize>,
+    pub cv: Condvar,
+}
+
+impl SharedEnd {
+    pub fn new() -> Arc<Self> {
+        Arc::new(SharedEnd {
+            lock: Mutex::new(0),
+            cv: Condvar::new(),
+        })
+    }
+}

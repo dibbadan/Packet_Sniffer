@@ -19,15 +19,15 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn get_parameters(&self) -> (u64, &str) {
+    pub fn get_parameters(self) -> (u64, String) {
         (
             match self.interval {
                 Some(s) => s,
                 None => 10,
             },
-            match &self.report {
-                Some(s) => &s,
-                None => "report.txt",
+            match self.report {
+                Some(s) => s,
+                None => "report.txt".to_string(),
             },
         )
     }

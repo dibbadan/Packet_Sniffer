@@ -3,8 +3,9 @@ use pcap::Device;
 use std::io;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use crate::shared_data::SharedEnd;
 
-pub fn get_commands(pause: Arc<SharedPause>) {
+pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
     let mut active = true;
     loop {
         match active {

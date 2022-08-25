@@ -6,15 +6,16 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::lib::shared_data::{SharedData, SharedPause};
+use crate::lib::shared_data::{SharedData, SharedPause, SharedEnd};
 use colored::Colorize;
 use tokio::time::interval;
 
 pub async fn task(
     secs: u64,
-    report_file: &str,
+    report_file: String,
     shared_data: Arc<SharedData>,
     pause: Arc<SharedPause>,
+    end: Arc<SharedEnd>,
 ) {
     let mut interval = interval(Duration::from_secs(secs));
     interval.tick().await; // skip first tick
@@ -27,7 +28,7 @@ pub async fn task(
                 .write(true)
                 .create(true)
                 .append(false)
-                .open(report_file)
+                .open(&report_file)
                 .unwrap();
 
             let mut file = LineWriter::new(file);

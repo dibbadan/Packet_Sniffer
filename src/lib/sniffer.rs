@@ -14,6 +14,7 @@ use std::thread::{current, sleep};
 use std::time::Duration;
 use std::{io, panic, thread};
 use tokio::task::JoinHandle;
+use crate::shared_data::SharedEnd;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
 
@@ -28,7 +29,7 @@ pub fn list_devices() -> Result<Vec<Device>, Error> {
 }
 
 #[tokio::main]
-pub async fn sniff(device: Device, interval: u64, report_file: &str) -> Result<(), Error> {
+pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result<(), Error> {
 
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
 
@@ -37,19 +38,26 @@ pub async fn sniff(device: Device, interval: u64, report_file: &str) -> Result<(
 
     let pause = SharedPause::new();
     let pause_clone = Arc::clone(&pause);
-
     let pausa_clone_task = Arc::clone(&pause);
 
+    let end = SharedEnd::new();
+    let end_clone1 = Arc::clone(&end);
+    let end_clone2 = Arc::clone(&end);
+    let end_clone3 = Arc::clone(&end);
 
-    get_packets(tx, device, pause_clone)?;
-    receive_packets(rx, mappa_clone)?;
+    get_packets(tx, device, pause_clone, end_clone1)?;
+    receive_packets(rx, mappa_clone, end_clone2)?;
 
-    inputs::get_commands(pause);
+    tokio::spawn(async move {
+        task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
+    });
+
+    inputs::get_commands(pause,end);
 
     Ok(())
 }
 
-pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>) -> Result<(), Error> {
+pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>, end: Arc<SharedEnd>) -> Result<(), Error> {
 
     let mut cap_handle = match device.open() {
         Ok(cap_handle) => cap_handle,
@@ -110,6 +118,7 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
 pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
     shared_data: Arc<SharedData>,
+    end: Arc<SharedEnd>
 ) -> Result<(), Error> {
 
     print_headers();
