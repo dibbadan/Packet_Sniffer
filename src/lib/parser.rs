@@ -1,3 +1,4 @@
+use crate::lib::dns::DnsPacket;
 use pcap::{Error, Packet};
 use pktparse::arp::ArpPacket;
 use pktparse::ethernet::{EtherType, EthernetFrame};
@@ -8,7 +9,6 @@ use pktparse::tcp::TcpHeader;
 use pktparse::udp::UdpHeader;
 use pktparse::*;
 use std::string::ToString;
-use crate::lib::dns::DnsPacket;
 
 #[derive(Debug)]
 pub enum PacketHeader {
@@ -51,6 +51,15 @@ impl ParsedPacket {
         }
     }
 
+    pub fn quit_message() -> ParsedPacket {
+        ParsedPacket {
+            len: 0,
+            timestamp: "Quit Message".to_string(),
+            headers: vec![],
+            remaining: vec![]
+        }
+    }
+
     pub fn get_len(&self) -> u32 {
         self.len
     }
@@ -74,8 +83,6 @@ impl ParsedPacket {
 
         protocol
     }
-
-
 
     pub fn get_headers(&self) -> &Vec<PacketHeader> {
         &self.headers

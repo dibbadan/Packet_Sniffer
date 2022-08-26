@@ -1,9 +1,9 @@
 use crate::lib::shared_data::SharedPause;
+use crate::shared_data::SharedEnd;
 use pcap::Device;
 use std::io;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use crate::shared_data::SharedEnd;
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
     let mut active = true;
@@ -38,8 +38,6 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         }
     }
 }
-
-
 
 pub fn get_device(devices: Vec<Device>) -> Device {
     println!("\n");

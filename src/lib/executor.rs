@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::lib::shared_data::{SharedData, SharedPause, SharedEnd};
+use crate::lib::shared_data::{SharedData, SharedEnd, SharedPause};
 use colored::Colorize;
 use tokio::time::interval;
 

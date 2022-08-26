@@ -6,16 +6,13 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use crate::lib::cli::Cli;
 use crate::lib::executor::task;
 use crate::lib::inputs::get_device;
 use crate::lib::shared_data::{key, MapData, SharedData};
-use crate::lib::cli::Cli;
 use crate::lib::sniffer;
 
-
-
 pub fn sniffer() -> Result<(), Error> {
-
     let cli = Cli::parse();
 
     let (interval, report_file) = Cli::get_parameters(cli);
@@ -27,5 +24,4 @@ pub fn sniffer() -> Result<(), Error> {
     sniffer::sniff(device, interval, report_file)?;
 
     Ok(())
-
 }

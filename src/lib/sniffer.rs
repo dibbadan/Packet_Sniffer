@@ -1,6 +1,7 @@
 use crate::lib::parser::{PacketHeader, ParsedPacket};
 use crate::lib::shared_data::{key, value, SharedData, SharedPause};
-use crate::lib::{inputs, shared_data, executor::task};
+use crate::lib::{executor::task, inputs, shared_data};
+use crate::shared_data::SharedEnd;
 use colored::Colorize;
 use pcap::{Active, Capture, Dead, Device, Error, Packet};
 use pktparse::ip::IPProtocol;
@@ -14,15 +15,13 @@ use std::thread::{current, sleep};
 use std::time::Duration;
 use std::{io, panic, thread};
 use tokio::task::JoinHandle;
-use crate::shared_data::SharedEnd;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
-
     let r = Device::list();
 
     let mut devices = match r {
         Err(error) => return Err(error),
-        Ok(devices) => devices
+        Ok(devices) => devices,
     };
 
     Ok(devices)
@@ -30,7 +29,6 @@ pub fn list_devices() -> Result<Vec<Device>, Error> {
 
 #[tokio::main]
 pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result<(), Error> {
-
     let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
 
     let mappa = SharedData::new();
@@ -48,40 +46,49 @@ pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result
     get_packets(tx, device, pause_clone, end_clone1)?;
     receive_packets(rx, mappa_clone, end_clone2)?;
 
-    tokio::spawn(async move {
+    /*tokio::spawn(async move {
         task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
-    });
+    });*/
 
-    inputs::get_commands(pause,end);
+    inputs::get_commands(pause, end);
 
     Ok(())
 }
 
-pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPause>, end: Arc<SharedEnd>) -> Result<(), Error> {
+pub fn get_packets(
+    tx: Sender<ParsedPacket>,
+    device: Device,
+    pause: Arc<SharedPause>,
+    end: Arc<SharedEnd>,
+) -> Result<(), Error> {
+
+
 
     let mut cap_handle = match device.open() {
         Ok(cap_handle) => cap_handle,
-        Err(error) => return Err(error)
-        //Err(error) => panic!("Error {:?}", error)
+        Err(error) => {
+            tx.send(ParsedPacket::quit_message()).unwrap();
+            panic!("{}\n", error.to_string());
+        }
     };
 
     let parser = ParsedPacket::new();
     let tx = tx.clone();
 
-    thread::spawn(move || loop {
+    thread::Builder::new().name("SENDER".to_string()).spawn(move || loop {
 
         let mut packet = match cap_handle.next() {
             Ok(packet) => packet,
-            Err(error) => panic!("{}", error.to_string())
+            Err(error) => {
+                tx.send(ParsedPacket::quit_message()).unwrap();
+                panic!("{}\n", error.to_string());
+            }
         };
 
         let mut state = pause.lock.lock().unwrap();
 
-
-
         if *state != true {
-
-            if let packet = packet{
+            if let packet = packet {
                 let data = packet.data.to_owned();
                 let len = packet.header.len;
                 let ts: String = format!(
@@ -93,45 +100,53 @@ pub fn get_packets(tx: Sender<ParsedPacket>, device: Device, pause: Arc<SharedPa
 
                 match parsed_packet {
                     Ok(parsed_packet) => {
-                        //println!("{}", format!("Thread is sending packet to channel!").cyan());
                         tx.send(parsed_packet).unwrap();
                     }
                     Err(error) => {
+                        tx.send(ParsedPacket::quit_message()).unwrap();
                         panic!("{}", error.to_string());
                     }
                 }
             } else {
+                tx.send(ParsedPacket::quit_message()).unwrap();
                 panic!("End of packet stream, shutting down sender thread!");
             }
         }
 
-
         state = pause.cv.wait_while(state, |s| *s == true).unwrap();
-
-    });
+    }).unwrap();
 
     Ok(())
-
 }
-
 
 pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
     shared_data: Arc<SharedData>,
-    end: Arc<SharedEnd>
+    end: Arc<SharedEnd>,
 ) -> Result<(), Error> {
 
     print_headers();
 
-    thread::spawn(move || {
+
+
+    thread::Builder::new().name("RECEIVER".to_string()).spawn(move || {
+
         for packet in rx.iter() {
             let mut guard = shared_data.m.map.lock().unwrap();
+
+            if packet.get_ts() == "Quit Message" {
+                sleep(Duration::from_secs(1));
+                panic!("Sender has panicked, so also the receiver!\n");
+            }
+
 
             match packet {
                 packet => {
                     let addr_pair = match get_addr(&packet) {
                         Ok(addr_pair) => addr_pair,
-                        Err(error) => panic!("{}", error.to_string())
+                        Err(error) => {
+                            panic!("{}\n", error.to_string());
+                        }
                     };
 
                     match guard.get_mut(&addr_pair) {
@@ -153,27 +168,26 @@ pub fn receive_packets(
             }
 
         }
-    });
+
+
+    }).unwrap();
+
 
     Ok(())
 }
 
-pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
-
-
+pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key, Error> {
     let mut addr_pair: key = key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         0,
-        0
+        0,
     );
 
     let headers = parsed_packet.get_headers();
 
-
-    let mut src_port= 0;
-    let mut dst_port= 0;
-
+    let mut src_port = 0;
+    let mut dst_port = 0;
 
     headers.iter().for_each(|h| match h {
         PacketHeader::Tcp(packet) => {
@@ -189,10 +203,20 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key,Error>{
 
     headers.iter().for_each(|h| match h {
         PacketHeader::Ipv4(packet) => {
-            addr_pair = key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr), src_port, dst_port);
+            addr_pair = key::new(
+                IpAddr::V4(packet.source_addr),
+                IpAddr::V4(packet.dest_addr),
+                src_port,
+                dst_port,
+            );
         }
         PacketHeader::Ipv6(packet) => {
-            addr_pair = key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr), src_port, dst_port);
+            addr_pair = key::new(
+                IpAddr::V6(packet.source_addr),
+                IpAddr::V6(packet.dest_addr),
+                src_port,
+                dst_port,
+            );
         }
         _ => {}
     });
