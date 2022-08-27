@@ -51,10 +51,10 @@ impl ParsedPacket {
         }
     }
 
-    pub fn quit_message() -> ParsedPacket {
+    pub fn quit_message(quit_message: &str) -> ParsedPacket {
         ParsedPacket {
             len: 0,
-            timestamp: "Quit Message".to_string(),
+            timestamp: quit_message.to_string(),
             headers: vec![],
             remaining: vec![]
         }

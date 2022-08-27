@@ -14,6 +14,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{current, sleep};
 use std::time::Duration;
 use std::{io, panic, thread};
+use crossbeam::channel::unbounded;
 use tokio::task::JoinHandle;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
@@ -29,7 +30,17 @@ pub fn list_devices() -> Result<Vec<Device>, Error> {
 
 #[tokio::main]
 pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result<(), Error> {
-    let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
+
+    //let (tx, rx): (Sender<ParsedPacket>, Receiver<ParsedPacket>) = mpsc::channel();
+
+    // CROSSBEAM CHANNEL CREATION ( MULTI PRODUCER - MULTI CONSUMER )
+    let (tx, rx) = unbounded::<ParsedPacket>();
+    let gp_s = tx.clone();
+    let gp_r = rx.clone();
+    let rp_s = tx.clone();
+    let rp_r = rx.clone();
+    let tok_s = tx.clone();
+    let tok_r = rx.clone();
 
     let mappa = SharedData::new();
     let mappa_clone = Arc::clone(&mappa);
@@ -38,24 +49,152 @@ pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result
     let pause_clone = Arc::clone(&pause);
     let pausa_clone_task = Arc::clone(&pause);
 
-    let end = SharedEnd::new();
+    /*let end = SharedEnd::new();
     let end_clone1 = Arc::clone(&end);
     let end_clone2 = Arc::clone(&end);
-    let end_clone3 = Arc::clone(&end);
+    let end_clone3 = Arc::clone(&end);*/
 
-    get_packets(tx, device, pause_clone, end_clone1)?;
-    receive_packets(rx, mappa_clone, end_clone2)?;
+    let end = SharedEnd::new();
 
-    /*tokio::spawn(async move {
-        task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
-    });*/
+    get_packets(gp_s, gp_r, device, pause_clone)?;
+    receive_packets(rp_s, rp_r, mappa_clone)?;
 
-    inputs::get_commands(pause, end);
+
+
+    tokio::spawn(async move {
+        task(interval, report_file, mappa, pausa_clone_task, tok_s, tok_r).await;
+    });
+
+    inputs::get_commands(pause, end, rx);
+    //inputs::get_commands(pause, end);
 
     Ok(())
 }
 
 pub fn get_packets(
+    tx: crossbeam::channel::Sender<ParsedPacket>,
+    rx: crossbeam::channel::Receiver<ParsedPacket>,
+    device: Device,
+    pause: Arc<SharedPause>
+) -> Result<(), Error> {
+
+
+
+    let mut cap_handle = match device.open() {
+        Ok(cap_handle) => cap_handle,
+        Err(error) => {
+            tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+            panic!("{}\n", error.to_string());
+        }
+    };
+
+    let parser = ParsedPacket::new();
+
+    thread::Builder::new().name("SENDER".to_string()).spawn(move || loop {
+
+
+        let mut packet = match cap_handle.next() {
+            Ok(packet) => packet,
+            Err(error) => {
+                tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+                panic!("{}\n", error.to_string());
+            }
+        };
+
+        let mut state = pause.lock.lock().unwrap();
+
+        if *state != true {
+            if let packet = packet {
+                let data = packet.data.to_owned();
+                let len = packet.header.len;
+                let ts: String = format!(
+                    "{}.{:06}",
+                    &packet.header.ts.tv_sec, &packet.header.ts.tv_usec
+                );
+
+                let parsed_packet = parser.parse_packet(data, len, ts);
+
+                match parsed_packet {
+                    Ok(parsed_packet) => {
+                        tx.send(parsed_packet).unwrap();
+                    }
+                    Err(error) => {
+                        tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+                        panic!("{}", error.to_string());
+                    }
+                }
+            } else {
+                tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+                panic!("End of packet stream, shutting down sender thread!");
+            }
+        }
+
+        state = pause.cv.wait_while(state, |s| *s == true).unwrap();
+    }).unwrap();
+
+    Ok(())
+}
+
+pub fn receive_packets(
+    tx: crossbeam::channel::Sender<ParsedPacket>,
+    rx: crossbeam::channel::Receiver<ParsedPacket>,
+    shared_data: Arc<SharedData>
+) -> Result<(), Error> {
+
+    print_headers();
+
+
+
+    thread::Builder::new().name("RECEIVER".to_string()).spawn(move || {
+
+        for packet in rx.iter() {
+            let mut guard = shared_data.m.map.lock().unwrap();
+
+            if packet.get_ts() == "Exit" {
+                tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+                panic!("Sender has panicked, so also the receiver!\n");
+            }
+
+
+            match packet {
+                packet => {
+                    let addr_pair = match get_addr(&packet) {
+                        Ok(addr_pair) => addr_pair,
+                        Err(error) => {
+                            tx.send(ParsedPacket::quit_message("Exit")).unwrap();
+                            panic!("{}\n", error.to_string());
+                        }
+                    };
+
+                    match guard.get_mut(&addr_pair) {
+                        Some(v) => {
+                            v.add_to_bytes(packet.get_len());
+                            v.set_end_ts(packet.get_ts().to_string())
+                        }
+                        None => {
+                            guard.insert(
+                                addr_pair,
+                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
+                            );
+                        }
+                    }
+
+                    show_to_console(&packet);
+
+                }
+            }
+
+        }
+
+
+    }).unwrap();
+
+
+    Ok(())
+}
+
+
+/*pub fn get_packets(
     tx: Sender<ParsedPacket>,
     device: Device,
     pause: Arc<SharedPause>,
@@ -117,9 +256,9 @@ pub fn get_packets(
     }).unwrap();
 
     Ok(())
-}
+}*/
 
-pub fn receive_packets(
+/*pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
     shared_data: Arc<SharedData>,
     end: Arc<SharedEnd>,
@@ -175,7 +314,7 @@ pub fn receive_packets(
 
     Ok(())
 }
-
+*/
 pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key, Error> {
     let mut addr_pair: key = key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),

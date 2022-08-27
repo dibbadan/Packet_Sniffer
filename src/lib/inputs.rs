@@ -3,9 +3,12 @@ use crate::shared_data::SharedEnd;
 use pcap::Device;
 use std::io;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 use tokio::task::JoinHandle;
+use crate::parser::ParsedPacket;
 
-pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
+pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>, rx:crossbeam::channel::Receiver<ParsedPacket>) {
     let mut active = true;
     loop {
         match active {
@@ -13,6 +16,7 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
             false => println!("Please enter r to resume the sniffing"),
         }
         let mut buffer = String::new();
+
         let mut r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
@@ -38,6 +42,42 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         }
     }
 }
+
+
+/*pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
+    let mut active = true;
+    loop {
+        match active {
+            true => println!("Please enter s to stop the sniffing"),
+            false => println!("Please enter r to resume the sniffing"),
+        }
+        let mut buffer = String::new();
+
+        let mut r = io::stdin().read_line(&mut buffer);
+        match r {
+            Ok(_) => {
+                let mut c = buffer.chars().next();
+                match c {
+                    Some(c) if active == true && c == 's' => {
+                        active = false;
+                        let mut state = pause.lock.lock().unwrap();
+                        *state = true;
+                    }
+                    Some(c) if active == false && c == 'r' => {
+                        active = true;
+                        let mut state = pause.lock.lock().unwrap();
+                        *state = false;
+                        pause.cv.notify_all();
+                    }
+                    _ => {
+                        println!("input non riconosciuto");
+                    }
+                }
+            }
+            Err(_) => println!("input non riconosciuto"),
+        }
+    }
+}*/
 
 pub fn get_device(devices: Vec<Device>) -> Device {
     println!("\n");
