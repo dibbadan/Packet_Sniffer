@@ -22,6 +22,28 @@ pub async fn task(
     loop {
         interval.tick().await;
 
+        {
+            let mut guard = end.lock.lock().unwrap();
+            if *guard > 0 {
+                panic!("TOKIO PANICKED!");
+            }
+        }
+
+
+
+        // TEST TOKIO PANIC
+        let mut err = true;
+        if err {
+
+            {
+                let mut guard = end.lock.lock().unwrap();
+                *guard += 1;
+            }
+
+            panic!("TOKIO PANICKED!");
+        }
+
+
         let mut state = pause.lock.lock().unwrap();
         if *state != true {
             let file = OpenOptions::new()
