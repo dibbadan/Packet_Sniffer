@@ -22,27 +22,31 @@ pub async fn task(
     loop {
         interval.tick().await;
 
-        {
-            let mut guard = end.lock.lock().unwrap();
-            if *guard > 0 {
-                panic!("TOKIO PANICKED!");
-            }
-        }
-
-
 
         // TEST TOKIO PANIC
-        let mut err = true;
+        /*let mut err = true;
         if err {
-
             {
                 let mut guard = end.lock.lock().unwrap();
                 *guard += 1;
             }
 
             panic!("TOKIO PANICKED!");
+        }*/
+
+        let mut propagation = false;
+
+        {
+            let mut guard = end.lock.lock().unwrap();
+            if *guard > 0 {
+                *guard += 1;
+                propagation = true;
+            }
         }
 
+        if propagation {
+            panic!("TOKIO PANICKED!");
+        }
 
         let mut state = pause.lock.lock().unwrap();
         if *state != true {
@@ -100,6 +104,8 @@ pub async fn task(
 
             println!("{}", format!("Report generated!").red());*/
         }
+
+
 
         state = pause.cv.wait_while(state, |s| *s == true).unwrap();
     }

@@ -1,19 +1,30 @@
 use crate::lib::shared_data::SharedPause;
 use crate::shared_data::SharedEnd;
 use pcap::Device;
-use std::io;
-use std::sync::Arc;
-use tokio::task::JoinHandle;
+use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{mpsc, Arc};
+use std::{io, thread};
+
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
     let mut active = true;
+
     loop {
         match active {
             true => println!("Please enter s to stop the sniffing"),
             false => println!("Please enter r to resume the sniffing"),
         }
+
         let mut buffer = String::new();
         let mut r = io::stdin().read_line(&mut buffer);
+
+        /*{
+            let mut guard = end.lock.lock().unwrap();
+            if *guard == 3 {
+                panic!("MAIN PANICKED!");
+            }
+        }*/
+
         match r {
             Ok(_) => {
                 let mut c = buffer.chars().next();

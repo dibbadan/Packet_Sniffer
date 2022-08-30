@@ -7,6 +7,7 @@ use pcap::{Active, Capture, Dead, Device, Error, Packet};
 use pktparse::ip::IPProtocol;
 use pktparse::tcp::TcpHeader;
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, RecvError, Sender};
@@ -14,6 +15,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{current, sleep};
 use std::time::Duration;
 use std::{io, panic, thread};
+use pcap::Error::TimeoutExpired;
 use tokio::task::JoinHandle;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
@@ -61,7 +63,11 @@ pub fn get_packets(
     pause: Arc<SharedPause>,
     end: Arc<SharedEnd>,
 ) -> Result<(), Error> {
-    let mut cap_handle = match device.open() {
+
+
+
+    let mut cap_handle = match Capture::from_device(device).unwrap()
+        .promisc(true).open() {
         Ok(cap_handle) => cap_handle,
         Err(error) => {
             return Err(error);
@@ -80,7 +86,8 @@ pub fn get_packets(
             {
                 let mut guard = end.lock.lock().unwrap();
                 if *guard > 0 {
-                    propagation=true;
+                    *guard += 1;
+                    propagation = true;
                 }
             }
 
@@ -88,11 +95,11 @@ pub fn get_packets(
                 panic!("GET PACKETS PANICKED DUE TO PANIC PROPAGATION!");
             }
 
-
             let mut packet = match cap_handle.next() {
                 Ok(packet) => packet,
                 Err(error) => {
                     {
+                        println!("Error in sender : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         *guard += 1;
                     }
@@ -118,6 +125,7 @@ pub fn get_packets(
                     }
                     Err(error) => {
                         {
+                            println!("Error in sender: {}", error);
                             let mut guard = end.lock.lock().unwrap();
                             *guard += 1;
                         }
@@ -144,18 +152,6 @@ pub fn receive_packets(
         .name("RECEIVER".to_string())
         .spawn(move || loop {
 
-            let mut propagation = false;
-
-            {
-                let mut guard = end.lock.lock().unwrap();
-                if *guard > 0 {
-                    propagation = true;
-                }
-            }
-
-            if propagation {
-                panic!("RECEIVE PACKETS PANICKED DUE TO PANIC PROPAGATION!");
-            }
 
             let result = rx.recv();
 
@@ -163,6 +159,7 @@ pub fn receive_packets(
                 Ok(packet) => packet,
                 Err(error) => {
                     {
+                        println!("Receiver error : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         *guard += 1;
                     }
@@ -200,6 +197,23 @@ pub fn receive_packets(
             }
 
             show_to_console(&packet);
+
+            let mut propagation = false;
+
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if *guard > 0 {
+                    *guard += 1;
+                    propagation = true;
+                }
+            }
+
+            if propagation {
+                panic!("RECEIVE PACKETS PANICKED DUE TO PANIC PROPAGATION!");
+            }
+
+
+
         })
         .unwrap();
 
