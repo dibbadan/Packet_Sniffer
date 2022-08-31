@@ -22,6 +22,32 @@ pub async fn task(
     loop {
         interval.tick().await;
 
+
+        // TEST TOKIO PANIC
+        /*let mut err = true;
+        if err {
+            {
+                let mut guard = end.lock.lock().unwrap();
+                *guard += 1;
+            }
+
+            panic!("TOKIO PANICKED!");
+        }*/
+
+        let mut propagation = false;
+
+        {
+            let mut guard = end.lock.lock().unwrap();
+            if *guard > 0 {
+                *guard += 1;
+                propagation = true;
+            }
+        }
+
+        if propagation {
+            panic!("TOKIO PANICKED!");
+        }
+
         let mut state = pause.lock.lock().unwrap();
         if *state != true {
             let file = OpenOptions::new()
@@ -78,6 +104,8 @@ pub async fn task(
 
             println!("{}", format!("Report generated!").red());*/
         }
+
+
 
         state = pause.cv.wait_while(state, |s| *s == true).unwrap();
     }

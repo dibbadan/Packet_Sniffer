@@ -7,6 +7,7 @@ use pcap::{Active, Capture, Dead, Device, Error, Packet};
 use pktparse::ip::IPProtocol;
 use pktparse::tcp::TcpHeader;
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, RecvError, Sender};
@@ -14,14 +15,15 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{current, sleep};
 use std::time::Duration;
 use std::{io, panic, thread};
+use pcap::Error::TimeoutExpired;
 use tokio::task::JoinHandle;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
-    let r = Device::list();
+    let list_result = Device::list();
 
-    let mut devices = match r {
-        Err(error) => return Err(error),
+    let mut devices = match list_result {
         Ok(devices) => devices,
+        Err(error) => return Err(error),
     };
 
     Ok(devices)
@@ -46,9 +48,9 @@ pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result
     get_packets(tx, device, pause_clone, end_clone1)?;
     receive_packets(rx, mappa_clone, end_clone2)?;
 
-    /*tokio::spawn(async move {
+    tokio::spawn(async move {
         task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
-    });*/
+    });
 
     inputs::get_commands(pause, end);
 
@@ -64,31 +66,50 @@ pub fn get_packets(
 
 
 
-    let mut cap_handle = match device.open() {
+    let mut cap_handle = match Capture::from_device(device).unwrap()
+        .promisc(true).open() {
         Ok(cap_handle) => cap_handle,
         Err(error) => {
-            tx.send(ParsedPacket::quit_message()).unwrap();
-            panic!("{}\n", error.to_string());
+            return Err(error);
         }
     };
 
     let parser = ParsedPacket::new();
     let tx = tx.clone();
 
-    thread::Builder::new().name("SENDER".to_string()).spawn(move || loop {
+    thread::Builder::new()
+        .name("SENDER".to_string())
+        .spawn(move || loop {
 
-        let mut packet = match cap_handle.next() {
-            Ok(packet) => packet,
-            Err(error) => {
-                tx.send(ParsedPacket::quit_message()).unwrap();
-                panic!("{}\n", error.to_string());
+            let mut propagation = false;
+
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if *guard > 0 {
+                    *guard += 1;
+                    propagation = true;
+                }
             }
-        };
 
-        let mut state = pause.lock.lock().unwrap();
+            if propagation {
+                panic!("GET PACKETS PANICKED DUE TO PANIC PROPAGATION!");
+            }
 
-        if *state != true {
-            if let packet = packet {
+            let mut packet = match cap_handle.next() {
+                Ok(packet) => packet,
+                Err(error) => {
+                    {
+                        println!("Error in sender : {}", error.to_string());
+                        let mut guard = end.lock.lock().unwrap();
+                        *guard += 1;
+                    }
+                    panic!("GET PACKETS PANICKED!");
+                }
+            };
+
+            let mut state = pause.lock.lock().unwrap();
+
+            if *state != true {
                 let data = packet.data.to_owned();
                 let len = packet.header.len;
                 let ts: String = format!(
@@ -103,18 +124,19 @@ pub fn get_packets(
                         tx.send(parsed_packet).unwrap();
                     }
                     Err(error) => {
-                        tx.send(ParsedPacket::quit_message()).unwrap();
-                        panic!("{}", error.to_string());
+                        {
+                            println!("Error in sender: {}", error);
+                            let mut guard = end.lock.lock().unwrap();
+                            *guard += 1;
+                        }
+                        panic!("GET PACKETS PANICKED!");
                     }
                 }
-            } else {
-                tx.send(ParsedPacket::quit_message()).unwrap();
-                panic!("End of packet stream, shutting down sender thread!");
             }
-        }
 
-        state = pause.cv.wait_while(state, |s| *s == true).unwrap();
-    }).unwrap();
+            state = pause.cv.wait_while(state, |s| *s == true).unwrap();
+        })
+        .unwrap();
 
     Ok(())
 }
@@ -124,59 +146,81 @@ pub fn receive_packets(
     shared_data: Arc<SharedData>,
     end: Arc<SharedEnd>,
 ) -> Result<(), Error> {
-
     print_headers();
 
+    thread::Builder::new()
+        .name("RECEIVER".to_string())
+        .spawn(move || loop {
 
 
-    thread::Builder::new().name("RECEIVER".to_string()).spawn(move || {
+            let result = rx.recv();
 
-        for packet in rx.iter() {
+            let packet = match result {
+                Ok(packet) => packet,
+                Err(error) => {
+                    {
+                        println!("Receiver error : {}", error.to_string());
+                        let mut guard = end.lock.lock().unwrap();
+                        *guard += 1;
+                    }
+                    panic!("RECEIVE PACKETS PANICKED!");
+                }
+            };
+
             let mut guard = shared_data.m.map.lock().unwrap();
 
-            if packet.get_ts() == "Quit Message" {
-                sleep(Duration::from_secs(1));
-                panic!("Sender has panicked, so also the receiver!\n");
-            }
+            /*let addr_pair = match get_addr(&packet) {
+                Ok(addr_pair) => addr_pair,
+                Err(error) => {
+                    //return Err(error);
+                }
+            };*/
 
+            let addr_pair = get_addr(&packet);
 
-            match packet {
-                packet => {
-                    let addr_pair = match get_addr(&packet) {
-                        Ok(addr_pair) => addr_pair,
-                        Err(error) => {
-                            panic!("{}\n", error.to_string());
-                        }
-                    };
-
-                    match guard.get_mut(&addr_pair) {
-                        Some(v) => {
-                            v.add_to_bytes(packet.get_len());
-                            v.set_end_ts(packet.get_ts().to_string())
-                        }
-                        None => {
-                            guard.insert(
-                                addr_pair,
-                                value::new(packet.get_len(), packet.get_ts().to_string(), packet.get_ts().to_string(), packet.get_protocol().to_string())
-                            );
-                        }
-                    }
-
-                    show_to_console(&packet);
-
+            match guard.get_mut(&addr_pair) {
+                Some(v) => {
+                    v.add_to_bytes(packet.get_len());
+                    v.set_end_ts(packet.get_ts().to_string())
+                }
+                None => {
+                    guard.insert(
+                        addr_pair,
+                        value::new(
+                            packet.get_len(),
+                            packet.get_ts().to_string(),
+                            packet.get_ts().to_string(),
+                            packet.get_protocol().to_string(),
+                        ),
+                    );
                 }
             }
 
-        }
+            show_to_console(&packet);
+
+            let mut propagation = false;
+
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if *guard > 0 {
+                    *guard += 1;
+                    propagation = true;
+                }
+            }
+
+            if propagation {
+                panic!("RECEIVE PACKETS PANICKED DUE TO PANIC PROPAGATION!");
+            }
 
 
-    }).unwrap();
 
+        })
+        .unwrap();
 
     Ok(())
 }
 
-pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key, Error> {
+pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
     let mut addr_pair: key = key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -231,7 +275,7 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> Result<key, Error> {
         _ => {}
     });*/
 
-    Ok(addr_pair)
+    addr_pair
 }
 
 pub fn show_to_console(parsed_packet: &ParsedPacket) {

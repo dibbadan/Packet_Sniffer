@@ -51,15 +51,6 @@ impl ParsedPacket {
         }
     }
 
-    pub fn quit_message() -> ParsedPacket {
-        ParsedPacket {
-            len: 0,
-            timestamp: "Quit Message".to_string(),
-            headers: vec![],
-            remaining: vec![]
-        }
-    }
-
     pub fn get_len(&self) -> u32 {
         self.len
     }
