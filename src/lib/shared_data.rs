@@ -152,15 +152,31 @@ impl SharedPause {
 }
 
 pub struct SharedEnd {
-    pub lock: Mutex<usize>,
+    pub lock: Mutex<EndData>,
     pub cv: Condvar,
 }
 
 impl SharedEnd {
     pub fn new() -> Arc<Self> {
         Arc::new(SharedEnd {
-            lock: Mutex::new(0),
+            lock: Mutex::new(EndData::new()),
             cv: Condvar::new(),
         })
+    }
+}
+
+pub struct EndData {
+    pub buf: String,
+    pub present: bool,
+    pub terminated: usize
+}
+
+impl EndData {
+    pub fn new() -> EndData {
+        EndData {
+            buf: String::new(),
+            present: false,
+            terminated: 0
+        }
     }
 }
