@@ -13,12 +13,12 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         .spawn(move || loop {
             let mut buffer = String::new();
             let mut r = io::stdin().read_line(&mut buffer);
-            println!("{}",buffer);
-            let mut guard = end_clone.lock.lock().unwrap();
-            println!("{}",guard.terminated);
-            guard.buf=buffer;
-            guard.result=r;
-            guard.present=true;
+            {
+                let mut guard = end_clone.lock.lock().unwrap();
+                guard.present = true;
+                guard.buf = buffer;
+                guard.result = r;
+            }
             end_clone.cv.notify_all();
         }).unwrap();
     let mut active = true;
@@ -29,17 +29,18 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         }
         let mut state = end.lock.lock().unwrap();
 
-        state = pause.cv.wait_while(state, |s| s.present == false && s.terminated == 0  ).unwrap();
+        state = end.cv.wait_while(state, |s| s.present == false && s.terminated == 0 ).unwrap();
         if state.terminated == 3 {
             //panic!("MAIN PANICKED!");
             process::exit(1); //we need to terminate the thread STDIN
         }
         if state.terminated > 0 {
+            println!("the program is shutting down");
             state = pause.cv.wait_while(state, |s| s.terminated < 3 ).unwrap();
-            //panic!("MAIN PANICKED!");
             process::exit(1); //we need to terminate the thread STDIN
         }
         if state.present {
+            state.present = false;
             match state.result {
                 Ok(_) => {
                     let mut c = state.buf.chars().next();
