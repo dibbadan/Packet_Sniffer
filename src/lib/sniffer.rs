@@ -85,8 +85,8 @@ pub fn get_packets(
 
             {
                 let mut guard = end.lock.lock().unwrap();
-                if *guard > 0 {
-                    *guard += 1;
+                if guard.terminated > 0 {
+                    guard.terminated += 1;
                     propagation = true;
                 }
             }
@@ -101,7 +101,7 @@ pub fn get_packets(
                     {
                         println!("Error in sender : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
-                        *guard += 1;
+                        guard.terminated += 1;
                     }
                     panic!("GET PACKETS PANICKED!");
                 }
@@ -127,7 +127,7 @@ pub fn get_packets(
                         {
                             println!("Error in sender: {}", error);
                             let mut guard = end.lock.lock().unwrap();
-                            *guard += 1;
+                            guard.terminated += 1;
                         }
                         panic!("GET PACKETS PANICKED!");
                     }
@@ -161,7 +161,7 @@ pub fn receive_packets(
                     {
                         println!("Receiver error : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
-                        *guard += 1;
+                        guard.terminated += 1;
                     }
                     panic!("RECEIVE PACKETS PANICKED!");
                 }
@@ -202,8 +202,8 @@ pub fn receive_packets(
 
             {
                 let mut guard = end.lock.lock().unwrap();
-                if *guard > 0 {
-                    *guard += 1;
+                if guard.terminated > 0 {
+                    guard.terminated += 1;
                     propagation = true;
                 }
             }

@@ -38,8 +38,8 @@ pub async fn task(
 
         {
             let mut guard = end.lock.lock().unwrap();
-            if *guard > 0 {
-                *guard += 1;
+            if guard.terminated > 0 {
+                guard.terminated += 1;
                 propagation = true;
             }
         }

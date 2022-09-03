@@ -3,50 +3,67 @@ use crate::shared_data::SharedEnd;
 use pcap::Device;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{mpsc, Arc};
-use std::{io, thread};
+use std::{io, process, thread};
 
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
+    let end_clone=Arc::clone(&end);
+    thread::Builder::new()
+        .name("STDIN".to_string())
+        .spawn(move || loop {
+            let mut buffer = String::new();
+            let mut r = io::stdin().read_line(&mut buffer);
+            println!("{}",buffer);
+            let mut guard = end_clone.lock.lock().unwrap();
+            println!("{}",guard.terminated);
+            guard.buf=buffer;
+            guard.result=r;
+            guard.present=true;
+            end_clone.cv.notify_all();
+        }).unwrap();
     let mut active = true;
-
     loop {
         match active {
             true => println!("Please enter s to stop the sniffing"),
             false => println!("Please enter r to resume the sniffing"),
         }
+        let mut state = end.lock.lock().unwrap();
 
-        let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
-
-        /*{
-            let mut guard = end.lock.lock().unwrap();
-            if *guard == 3 {
-                panic!("MAIN PANICKED!");
-            }
-        }*/
-
-        match r {
-            Ok(_) => {
-                let mut c = buffer.chars().next();
-                match c {
-                    Some(c) if active == true && c == 's' => {
-                        active = false;
-                        let mut state = pause.lock.lock().unwrap();
-                        *state = true;
-                    }
-                    Some(c) if active == false && c == 'r' => {
-                        active = true;
-                        let mut state = pause.lock.lock().unwrap();
-                        *state = false;
-                        pause.cv.notify_all();
-                    }
-                    _ => {
-                        println!("input non riconosciuto");
+        state = pause.cv.wait_while(state, |s| s.present == false && s.terminated == 0  ).unwrap();
+        if state.terminated == 3 {
+            //panic!("MAIN PANICKED!");
+            process::exit(1); //we need to terminate the thread STDIN
+        }
+        if state.terminated > 0 {
+            state = pause.cv.wait_while(state, |s| s.terminated < 3 ).unwrap();
+            //panic!("MAIN PANICKED!");
+            process::exit(1); //we need to terminate the thread STDIN
+        }
+        if state.present {
+            match state.result {
+                Ok(_) => {
+                    let mut c = state.buf.chars().next();
+                    match c {
+                        Some(c) if active == true && c == 's' => {
+                            active = false;
+                            let mut state = pause.lock.lock().unwrap();
+                            *state = true;
+                        }
+                        Some(c) if active == false && c == 'r' => {
+                            active = true;
+                            let mut state = pause.lock.lock().unwrap();
+                            *state = false;
+                            pause.cv.notify_all();
+                        }
+                        _ => {
+                            println!("input non riconosciuto");
+                        }
                     }
                 }
+                Err(_) => println!("input non riconosciuto"),
             }
-            Err(_) => println!("input non riconosciuto"),
         }
+
     }
 }
 
