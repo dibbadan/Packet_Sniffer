@@ -41,6 +41,7 @@ pub async fn task(
             if guard.terminated > 0 {
                 guard.terminated += 1;
                 propagation = true;
+                end.cv.notify_all();
             }
         }
 

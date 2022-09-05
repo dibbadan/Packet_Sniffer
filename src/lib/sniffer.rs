@@ -88,6 +88,7 @@ pub fn get_packets(
                 if guard.terminated > 0 {
                     guard.terminated += 1;
                     propagation = true;
+                    end.cv.notify_all();
                 }
             }
 
@@ -102,6 +103,7 @@ pub fn get_packets(
                         println!("Error in sender : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
+                        end.cv.notify_all();
                     }
                     panic!("GET PACKETS PANICKED!");
                 }
@@ -128,6 +130,7 @@ pub fn get_packets(
                             println!("Error in sender: {}", error);
                             let mut guard = end.lock.lock().unwrap();
                             guard.terminated += 1;
+                            end.cv.notify_all();
                         }
                         panic!("GET PACKETS PANICKED!");
                     }
@@ -162,6 +165,7 @@ pub fn receive_packets(
                         println!("Receiver error : {}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
+                        end.cv.notify_all();
                     }
                     panic!("RECEIVE PACKETS PANICKED!");
                 }
@@ -205,6 +209,7 @@ pub fn receive_packets(
                 if guard.terminated > 0 {
                     guard.terminated += 1;
                     propagation = true;
+                    end.cv.notify_all();
                 }
             }
 
