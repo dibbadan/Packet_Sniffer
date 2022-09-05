@@ -7,8 +7,9 @@ use std::{io, process, thread};
 
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
+
     let end_clone=Arc::clone(&end);
-    thread::Builder::new()
+    let thread = thread::Builder::new()
         .name("STDIN".to_string())
         .spawn(move || loop {
             let mut buffer = String::new();
@@ -20,7 +21,17 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                 guard.result = r;
             }
             end_clone.cv.notify_all();
-        }).unwrap();
+        });
+    match thread {
+        Ok(_) => {},
+        Err(error) => {
+            eprintln!("{}", error);
+            let mut guard = end.lock.lock().unwrap();
+            guard.terminated += 1;
+            end.cv.notify_all();
+        }
+    }
+
     let mut active = true;
     loop {
         match active {
@@ -35,7 +46,7 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
             process::exit(1); //we need to terminate the thread STDIN
         }
         if state.terminated > 0 {
-            println!("the program is shutting down");
+            eprintln!("the program is shutting down");
             state = end.cv.wait_while(state, |s| s.terminated < 3 ).unwrap();
             process::exit(1); //we need to terminate the thread STDIN
         }
@@ -88,11 +99,11 @@ pub fn get_device(devices: Vec<Device>) -> Device {
                         return devices[n].clone();
                     }
                     _ => {
-                        println!("input non riconosciuto");
+                        eprintln!("input non riconosciuto");
                     }
                 }
             }
-            Err(_) => println!("input non riconosciuto"),
+            Err(_) => eprintln!("input non riconosciuto"),
         }
     }
 }
