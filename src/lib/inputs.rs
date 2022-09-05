@@ -3,7 +3,8 @@ use crate::shared_data::SharedEnd;
 use pcap::Device;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{mpsc, Arc};
-use std::{io, process, thread};
+use std::{io, process, thread, time};
+use std::thread::sleep;
 
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
@@ -43,11 +44,13 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         state = end.cv.wait_while(state, |s| s.present == false && s.terminated == 0 ).unwrap();
         if state.terminated == 3 {
             //panic!("MAIN PANICKED!");
+            sleep(time::Duration::from_millis(300));
             process::exit(1); //we need to terminate the thread STDIN
         }
         if state.terminated > 0 {
             eprintln!("the program is shutting down");
             state = end.cv.wait_while(state, |s| s.terminated < 3 ).unwrap();
+            sleep(time::Duration::from_millis(300));
             process::exit(1); //we need to terminate the thread STDIN
         }
         if state.present {
