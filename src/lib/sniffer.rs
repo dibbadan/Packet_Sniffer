@@ -21,9 +21,12 @@ use tokio::task::JoinHandle;
 pub fn list_devices() -> Result<Vec<Device>, Error> {
     let list_result = Device::list();
 
-    let mut devices = match list_result {
+    let mut devices = match Device::list() {
         Ok(devices) => devices,
-        Err(error) => return Err(error),
+        Err(error) => {
+            eprintln!("{}", error.to_string());
+            return Err(error);
+        }
     };
 
     Ok(devices)
@@ -66,10 +69,18 @@ pub fn get_packets(
 
 
 
-    let mut cap_handle = match Capture::from_device(device).unwrap()
-        .promisc(true).open() {
-        Ok(cap_handle) => cap_handle,
+    let mut cap_handle = match Capture::from_device(device) {
+        Ok(capture) => {
+            match capture.promisc(true).open() {
+                Ok(cap_handle) => cap_handle,
+                Err(error) => {
+                    eprintln!("{}", error.to_string());
+                    return Err(error);
+                }
+            }
+        },
         Err(error) => {
+            eprintln!("{}", error.to_string());
             return Err(error);
         }
     };
@@ -100,7 +111,7 @@ pub fn get_packets(
                 Ok(packet) => packet,
                 Err(error) => {
                     {
-                        println!("Error in sender : {}", error.to_string());
+                        eprintln!("{}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
                         end.cv.notify_all();
@@ -127,7 +138,7 @@ pub fn get_packets(
                     }
                     Err(error) => {
                         {
-                            println!("Error in sender: {}", error);
+                            eprintln!("{}", error);
                             let mut guard = end.lock.lock().unwrap();
                             guard.terminated += 1;
                             end.cv.notify_all();
@@ -162,7 +173,7 @@ pub fn receive_packets(
                 Ok(packet) => packet,
                 Err(error) => {
                     {
-                        println!("Receiver error : {}", error.to_string());
+                        eprintln!("{}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
                         end.cv.notify_all();
