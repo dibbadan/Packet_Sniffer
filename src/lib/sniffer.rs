@@ -67,7 +67,6 @@ pub fn get_packets(
 ) -> Result<(), Error> {
 
 
-
     let mut cap_handle = match Capture::from_device(device) {
         Ok(capture) => {
             match capture.promisc(true).open() {
@@ -91,7 +90,16 @@ pub fn get_packets(
         .name("SENDER".to_string())
         .spawn(move || loop {
 
-            let mut propagation = false;
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if guard.terminated > 0 {
+                    guard.terminated += 1;
+                    end.cv.notify_all();
+                    break;
+                }
+            }
+
+            /*let mut propagation = false;
 
             {
                 let mut guard = end.lock.lock().unwrap();
@@ -104,7 +112,7 @@ pub fn get_packets(
 
             if propagation {
                 panic!("GET PACKETS PANICKED DUE TO PANIC PROPAGATION!");
-            }
+            }*/
 
             let mut packet = match cap_handle.next() {
                 Ok(packet) => packet,
@@ -133,7 +141,19 @@ pub fn get_packets(
 
                 match parsed_packet {
                     Ok(parsed_packet) => {
-                        tx.send(parsed_packet).unwrap();
+                        /*tx.send(parsed_packet).unwrap();*/
+                        match tx.send(parsed_packet) {
+                            Ok(()) => {},
+                            Err(error) => {
+                                {
+                                    eprintln!("{}", error);
+                                    let mut guard = end.lock.lock().unwrap();
+                                    guard.terminated += 1;
+                                    end.cv.notify_all();
+                                }
+                                panic!("GET PACKETS PANICKED!");
+                            }
+                        }
                     }
                     Err(error) => {
                         {
@@ -164,6 +184,7 @@ pub fn receive_packets(
     thread::Builder::new()
         .name("RECEIVER".to_string())
         .spawn(move || loop {
+
 
 
             let result = rx.recv();
@@ -212,7 +233,7 @@ pub fn receive_packets(
 
             show_to_console(&packet);
 
-            let mut propagation = false;
+            /*let mut propagation = false;
 
             {
                 let mut guard = end.lock.lock().unwrap();
@@ -225,6 +246,15 @@ pub fn receive_packets(
 
             if propagation {
                 panic!("RECEIVE PACKETS PANICKED DUE TO PANIC PROPAGATION!");
+            }*/
+
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if guard.terminated > 0 {
+                    guard.terminated += 1;
+                    end.cv.notify_all();
+                    break;
+                }
             }
 
 

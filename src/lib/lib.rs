@@ -13,6 +13,7 @@ use crate::lib::shared_data::{key, MapData, SharedData};
 use crate::lib::sniffer;
 
 pub fn sniffer() -> Result<(), Error> {
+
     let cli = Cli::parse();
 
     let (interval, report_file) = Cli::get_parameters(cli);

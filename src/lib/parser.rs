@@ -127,9 +127,17 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match ipv4::parse_ipv4_header(content) {
             Ok((content, IPv4Header)) => {
-                self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet)?;
-                parsed_packet.headers.push(PacketHeader::Ipv4(IPv4Header));
-                Ok(())
+                /*self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet)?;*/
+                match self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet) {
+                    Ok(()) => {
+                        parsed_packet.headers.push(PacketHeader::Ipv4(IPv4Header));
+                        Ok(())
+                    },
+                    Err(error) => {
+                        Ok(())
+                    }
+                }
+
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
@@ -145,9 +153,18 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match ipv6::parse_ipv6_header(content) {
             Ok((content, IPv6Header)) => {
-                self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet)?;
-                parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
-                Ok(())
+                //self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet)?;
+                match self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet) {
+                    Ok(value) => {
+                        parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
+                        Ok(())
+                    },
+                    Err(error) => {
+                        Ok(())
+                    }
+                }
+                /*parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
+                Ok(())*/
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
@@ -172,10 +189,10 @@ impl ParsedPacket {
                 self.parse_udp(content, parsed_packet)
                     .expect("Error in parsing UDP");
                 Ok(())
-            }
+            },
             _ => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error parsing Transport Layer".to_string())
+                Err("error parsing transport layer".to_string())
             }
         }
     }

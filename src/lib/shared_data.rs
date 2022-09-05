@@ -1,4 +1,3 @@
-use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -83,7 +82,7 @@ impl Display for key {
     }
 }
 
-impl Serialize for key {
+/*impl Serialize for key {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -109,7 +108,7 @@ impl Serialize for value {
             self.3
         ))
     }
-}
+}*/
 
 /*impl MapData {
     pub fn new() -> Self {

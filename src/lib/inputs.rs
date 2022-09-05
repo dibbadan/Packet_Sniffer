@@ -1,7 +1,7 @@
 use crate::lib::shared_data::SharedPause;
 use crate::shared_data::SharedEnd;
 use pcap::Device;
-use std::sync::mpsc::{Receiver, TryRecvError};
+//use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{mpsc, Arc};
 use std::{io, process, thread, time};
 use std::thread::sleep;
@@ -70,6 +70,14 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                             *state = false;
                             pause.cv.notify_all();
                         }
+                        Some(c) if c == 'q' => {
+                            state.terminated += 1;
+                            println!("The program is shutting down ...");
+                            state = end.cv.wait_while(state, |s| s.terminated < 4 ).unwrap();
+                            sleep(time::Duration::from_millis(300));
+                            process::exit(0); //we need to terminate the thread STDIN
+                        }
+
                         _ => {
                             println!("input non riconosciuto");
                         }
