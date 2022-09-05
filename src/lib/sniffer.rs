@@ -19,7 +19,6 @@ use pcap::Error::TimeoutExpired;
 use tokio::task::JoinHandle;
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
-    let list_result = Device::list();
 
     let mut devices = match Device::list() {
         Ok(devices) => devices,
