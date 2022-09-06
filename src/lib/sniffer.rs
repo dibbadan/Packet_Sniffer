@@ -195,6 +195,15 @@ pub fn receive_packets(
 
             let result = rx.recv();
 
+            {
+                let mut guard = end.lock.lock().unwrap();
+                if guard.terminated > 0 {
+                    guard.terminated += 1;
+                    end.cv.notify_all();
+                    break;
+                }
+            }
+
 
             let packet = match result {
                 Ok(packet) => packet,
@@ -238,14 +247,7 @@ pub fn receive_packets(
                 }
             }
 
-            {
-                let mut guard = end.lock.lock().unwrap();
-                if guard.terminated > 0 {
-                    guard.terminated += 1;
-                    end.cv.notify_all();
-                    break;
-                }
-            }
+
 
             show_to_console(&packet);
 
