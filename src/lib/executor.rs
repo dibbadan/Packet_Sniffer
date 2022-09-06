@@ -53,13 +53,22 @@ pub async fn task(
 
 
             if *state != true {
+                /* 
                 let file = OpenOptions::new()
                     .write(true)
                     .create(true)
                     .append(false)
                     .open(&report_file)
                     .unwrap();
+                */
 
+ 
+                let file = match OpenOptions::new().write(true).create(true).append(false).open(&report_file)
+                                {
+                                    Ok(file) => file,
+                                    Err(err) => panic!{"Error while opening file {}", err},
+                                };
+                
                 let mut file = LineWriter::new(file);
 
                 let generating_at = chrono::Local::now();
@@ -72,14 +81,27 @@ pub async fn task(
                     generating_at.second()
                 );
                 let report_header = format!(
-                    "{0: <20} | {1: <20} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} |",
+                    "{0: <25} | {1: <25} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} |",
                     "SRC_ADDR", "DST_ADDR", "SRC_PORT", "DST_PORT", "Total_Bytes", "Start_ts", "End_ts"
                 );
 
+
+                 
+                let text = time_header + "\n" + &report_header + "\n";
+
+                if !text.is_empty() {
+                    file.write_all(text.as_bytes());
+                }
+                else {
+                    panic!("Error while writing on file");
+                }    
+
+                /*
                 file.write_all(time_header.as_bytes()).unwrap();
                 file.write_all(b"\n").unwrap();
                 file.write_all(report_header.as_bytes()).unwrap();
                 file.write_all(b"\n").unwrap();
+                */
 
                 let mut guard = shared_data.m.map.lock().unwrap();
 
@@ -90,7 +112,14 @@ pub async fn task(
                 if !guard.deref().is_empty() {
                     for (k, v) in guard.deref() {
                         let my_str = format!("{}{}\n", k.to_string(), v.to_string());
-                        file.write_all(my_str.as_bytes()).unwrap();
+                        // file.write_all(my_str.as_bytes()).unwrap();
+
+                        if !my_str.is_empty(){
+                            file.write_all(my_str.as_bytes());
+                        }
+                        else {
+                            panic!("Error while writing");
+                        }
                     }
 
                     file.write_all(b"\n").unwrap();

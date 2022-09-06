@@ -73,7 +73,7 @@ impl Display for key {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{0: <20} | {1: <20} | {2: <15} | {3: <15}",
+            "{0: <25} | {1: <25} | {2: <15} | {3: <15}",
             self.0.to_string(),
             self.1.to_string(),
             self.2.to_string(),
