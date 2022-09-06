@@ -66,7 +66,13 @@ pub async fn task(
                 let file = match OpenOptions::new().write(true).create(true).append(false).open(&report_file)
                                 {
                                     Ok(file) => file,
-                                    Err(err) => panic!{"Error while opening file {}", err},
+                                    Err(err) => {
+                                        
+                                        let mut guard = end.lock.lock().unwrap();
+                                        guard.terminated += 1;
+                                        end.cv.notify_all();
+                                        panic!{"Error while opening file {}", err}
+                                    }
                                 };
                 
                 let mut file = LineWriter::new(file);
@@ -89,12 +95,16 @@ pub async fn task(
                  
                 let text = time_header + "\n" + &report_header + "\n";
 
-                if !text.is_empty() {
-                    file.write_all(text.as_bytes());
+                
+                match file.write_all(text.as_bytes()){
+                            Ok(()) => {},
+                            Err(err) => {
+                                let mut guard = end.lock.lock().unwrap();
+                                guard.terminated += 1;
+                                panic!{"Error while writing {}",err};
+                            }
                 }
-                else {
-                    panic!("Error while writing on file");
-                }    
+                
 
                 /*
                 file.write_all(time_header.as_bytes()).unwrap();
@@ -114,15 +124,30 @@ pub async fn task(
                         let my_str = format!("{}{}\n", k.to_string(), v.to_string());
                         // file.write_all(my_str.as_bytes()).unwrap();
 
-                        if !my_str.is_empty(){
-                            file.write_all(my_str.as_bytes());
-                        }
-                        else {
-                            panic!("Error while writing");
-                        }
+                        
+                        match file.write_all(my_str.as_bytes()){
+                            Ok(()) => {},
+                            Err(err) => {
+
+                                let mut guard = end.lock.lock().unwrap();
+                                guard.terminated += 1;
+                                panic!{"Error while writing {}",err};
+                                }
+                            }
+
+                        
+                        
                     }
 
-                    file.write_all(b"\n").unwrap();
+                    match file.write_all(b"\n"){
+                        Ok(()) => {},
+                            Err(err) => {
+
+                                let mut guard = end.lock.lock().unwrap();
+                                guard.terminated += 1;
+                                panic!{"Error while writing {}",err};
+                                }
+                            }
                     println!("{}", format!("Report generated!").red());
                 }
                 /*for (k,v) in guard.deref() {
