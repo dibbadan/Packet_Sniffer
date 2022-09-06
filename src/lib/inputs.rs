@@ -74,7 +74,6 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                         Some(c) if c == 'q' => {
                             state.terminated += 1;
                             println!("The program is shutting down ...");
-                            end.cv.notify_all();
                             state = end.cv.wait_while(state, |s| s.terminated < 4).unwrap();
                             sleep(time::Duration::from_millis(30));
                             process::exit(0); //we need to terminate the thread STDIN
