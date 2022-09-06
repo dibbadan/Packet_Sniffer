@@ -7,7 +7,7 @@ use pcap::{Active, Capture, Dead, Device, Error, Packet};
 use pktparse::ip::IPProtocol;
 use pktparse::tcp::TcpHeader;
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, RecvError, Sender};
@@ -69,7 +69,7 @@ pub fn get_packets(
 
     let mut cap_handle = match Capture::from_device(device) {
         Ok(capture) => {
-            match capture.promisc(true).open() {
+            match capture.promisc(true).timeout(1000).open() {
                 Ok(cap_handle) => cap_handle,
                 Err(error) => {
                     eprintln!("{}", error.to_string());
@@ -113,22 +113,43 @@ pub fn get_packets(
             if propagation {
                 panic!("GET PACKETS PANICKED DUE TO PANIC PROPAGATION!");
             }*/
+            
+            let mut packet;
 
-            let mut packet = match cap_handle.next() {
-                Ok(packet) => packet,
-                Err(error) => {
-                    {
+            match cap_handle.next() {
+                
+                
+                Ok(p) => packet=p,
+
+                Err(error) => match error{
+                    
+                    TimeoutExpired => { 
+                            
+                            let mut guard = end.lock.lock().unwrap();
+                            if guard.terminated > 0 {
+                                guard.terminated += 1;
+                                end.cv.notify_all();
+                                break;
+                                //panic!("GET PACKETS PANICKED!");
+                            }
+                            //panic!("GET PACKETS PANICKED!");
+                            
+                    }
+                    _ =>{
                         eprintln!("{}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
                         end.cv.notify_all();
+                        panic!("GET PACKETS PANICKED!");
                     }
-                    panic!("GET PACKETS PANICKED!");
-                }
+        
+                }, 
+        
             };
 
             let mut state = pause.lock.lock().unwrap();
 
+            
             if *state != true {
                 let data = packet.data.to_owned();
                 let len = packet.header.len;
