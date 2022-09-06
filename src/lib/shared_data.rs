@@ -168,7 +168,7 @@ pub struct EndData {
     pub buf: String,
     pub present: bool,
     pub result: std::io::Result<usize>,
-    pub terminated: usize
+    pub terminated: usize,
 }
 
 impl EndData {
@@ -177,7 +177,7 @@ impl EndData {
             buf: String::new(),
             present: false,
             result: Ok(0),
-            terminated: 0
+            terminated: 0,
         }
     }
 }

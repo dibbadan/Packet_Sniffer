@@ -50,10 +50,8 @@ pub async fn task(
         let mut state = pause.lock.lock().unwrap();
 
         if passed == secs {
-
-
             if *state != true {
-                /* 
+                /*
                 let file = OpenOptions::new()
                     .write(true)
                     .create(true)
@@ -62,19 +60,21 @@ pub async fn task(
                     .unwrap();
                 */
 
- 
-                let file = match OpenOptions::new().write(true).create(true).append(false).open(&report_file)
-                                {
-                                    Ok(file) => file,
-                                    Err(err) => {
-                                        
-                                        let mut guard = end.lock.lock().unwrap();
-                                        guard.terminated += 1;
-                                        end.cv.notify_all();
-                                        panic!{"Error while opening file {}", err}
-                                    }
-                                };
-                
+                let file = match OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .append(false)
+                    .open(&report_file)
+                {
+                    Ok(file) => file,
+                    Err(err) => {
+                        let mut guard = end.lock.lock().unwrap();
+                        guard.terminated += 1;
+                        end.cv.notify_all();
+                        panic! {"Error while opening file {}", err}
+                    }
+                };
+
                 let mut file = LineWriter::new(file);
 
                 let generating_at = chrono::Local::now();
@@ -88,23 +88,25 @@ pub async fn task(
                 );
                 let report_header = format!(
                     "{0: <25} | {1: <25} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} |",
-                    "SRC_ADDR", "DST_ADDR", "SRC_PORT", "DST_PORT", "Total_Bytes", "Start_ts", "End_ts"
+                    "SRC_ADDR",
+                    "DST_ADDR",
+                    "SRC_PORT",
+                    "DST_PORT",
+                    "Total_Bytes",
+                    "Start_ts",
+                    "End_ts"
                 );
 
-
-                 
                 let text = time_header + "\n" + &report_header + "\n";
 
-                
-                match file.write_all(text.as_bytes()){
-                            Ok(()) => {},
-                            Err(err) => {
-                                let mut guard = end.lock.lock().unwrap();
-                                guard.terminated += 1;
-                                panic!{"Error while writing {}",err};
-                            }
+                match file.write_all(text.as_bytes()) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        let mut guard = end.lock.lock().unwrap();
+                        guard.terminated += 1;
+                        panic! {"Error while writing {}",err};
+                    }
                 }
-                
 
                 /*
                 file.write_all(time_header.as_bytes()).unwrap();
@@ -124,44 +126,37 @@ pub async fn task(
                         let my_str = format!("{}{}\n", k.to_string(), v.to_string());
                         // file.write_all(my_str.as_bytes()).unwrap();
 
-                        
-                        match file.write_all(my_str.as_bytes()){
-                            Ok(()) => {},
+                        match file.write_all(my_str.as_bytes()) {
+                            Ok(()) => {}
                             Err(err) => {
-
                                 let mut guard = end.lock.lock().unwrap();
                                 guard.terminated += 1;
-                                panic!{"Error while writing {}",err};
-                                }
+                                panic! {"Error while writing {}",err};
                             }
-
-                        
-                        
+                        }
                     }
 
-                    match file.write_all(b"\n"){
-                        Ok(()) => {},
-                            Err(err) => {
-
-                                let mut guard = end.lock.lock().unwrap();
-                                guard.terminated += 1;
-                                panic!{"Error while writing {}",err};
-                                }
-                            }
+                    match file.write_all(b"\n") {
+                        Ok(()) => {}
+                        Err(err) => {
+                            let mut guard = end.lock.lock().unwrap();
+                            guard.terminated += 1;
+                            panic! {"Error while writing {}",err};
+                        }
+                    }
                     println!("{}", format!("Report generated!").red());
                 }
                 /*for (k,v) in guard.deref() {
-                let my_str = format!("{}{}\n", k.to_string(), v.to_string());
-                file.write_all(my_str.as_bytes()).unwrap();
-            }*/
+                    let my_str = format!("{}{}\n", k.to_string(), v.to_string());
+                    file.write_all(my_str.as_bytes()).unwrap();
+                }*/
 
                 //file.write_all(json_string.as_bytes()).unwrap();
 
                 /*file.write_all(b"\n").unwrap();
 
-            println!("{}", format!("Report generated!").red());*/
+                println!("{}", format!("Report generated!").red());*/
             }
-
 
             passed = 0;
         }

@@ -3,13 +3,11 @@ use crate::shared_data::SharedEnd;
 use pcap::Device;
 //use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{mpsc, Arc};
-use std::{io, process, thread, time};
 use std::thread::sleep;
-
+use std::{io, process, thread, time};
 
 pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
-
-    let end_clone=Arc::clone(&end);
+    let end_clone = Arc::clone(&end);
     let thread = thread::Builder::new()
         .name("STDIN".to_string())
         .spawn(move || loop {
@@ -24,7 +22,7 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
             end_clone.cv.notify_all();
         });
     match thread {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(error) => {
             eprintln!("{}", error);
             let mut guard = end.lock.lock().unwrap();
@@ -41,7 +39,10 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         }
         let mut state = end.lock.lock().unwrap();
 
-        state = end.cv.wait_while(state, |s| s.present == false && s.terminated == 0 ).unwrap();
+        state = end
+            .cv
+            .wait_while(state, |s| s.present == false && s.terminated == 0)
+            .unwrap();
         if state.terminated == 3 {
             //panic!("MAIN PANICKED!");
             sleep(time::Duration::from_millis(300));
@@ -49,7 +50,7 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         }
         if state.terminated > 0 {
             eprintln!("the program is shutting down");
-            state = end.cv.wait_while(state, |s| s.terminated < 3 ).unwrap();
+            state = end.cv.wait_while(state, |s| s.terminated < 3).unwrap();
             sleep(time::Duration::from_millis(300));
             process::exit(1); //we need to terminate the thread STDIN
         }
@@ -73,7 +74,8 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                         Some(c) if c == 'q' => {
                             state.terminated += 1;
                             println!("The program is shutting down ...");
-                            state = end.cv.wait_while(state, |s| s.terminated < 4 ).unwrap();
+                            end.cv.notify_all();
+                            state = end.cv.wait_while(state, |s| s.terminated < 4).unwrap();
                             sleep(time::Duration::from_millis(30));
                             process::exit(0); //we need to terminate the thread STDIN
                         }
@@ -86,7 +88,6 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                 Err(_) => println!("input non riconosciuto"),
             }
         }
-
     }
 }
 

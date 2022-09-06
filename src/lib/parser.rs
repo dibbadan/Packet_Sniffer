@@ -1,7 +1,7 @@
 use crate::lib::dns::DnsPacket;
 use pcap::{Error, Packet};
 use pktparse::arp::ArpPacket;
-use pktparse::ethernet::{EtherType, EthernetFrame};
+use pktparse::ethernet::{EtherType, EthernetFrame, parse_ethernet_frame};
 use pktparse::ip::IPProtocol;
 use pktparse::ipv4::IPv4Header;
 use pktparse::ipv6::IPv6Header;
@@ -106,6 +106,7 @@ impl ParsedPacket {
                         self.parse_arp(content, &mut parsed_packet)?;
                     }*/
                     _ => {
+
                         parsed_packet.remaining = content.to_owned();
                     }
                 }
@@ -132,12 +133,9 @@ impl ParsedPacket {
                     Ok(()) => {
                         parsed_packet.headers.push(PacketHeader::Ipv4(IPv4Header));
                         Ok(())
-                    },
-                    Err(error) => {
-                        Ok(())
                     }
+                    Err(error) => Ok(()),
                 }
-
             }
             Err(err) => {
                 parsed_packet.remaining = content.to_owned();
@@ -158,10 +156,8 @@ impl ParsedPacket {
                     Ok(value) => {
                         parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
                         Ok(())
-                    },
-                    Err(error) => {
-                        Ok(())
                     }
+                    Err(error) => Ok(()),
                 }
                 /*parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
                 Ok(())*/
@@ -189,7 +185,7 @@ impl ParsedPacket {
                 self.parse_udp(content, parsed_packet)
                     .expect("Error in parsing UDP");
                 Ok(())
-            },
+            }
             _ => {
                 parsed_packet.remaining = content.to_owned();
                 Err("error parsing transport layer".to_string())
