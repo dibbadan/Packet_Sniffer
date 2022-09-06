@@ -329,7 +329,8 @@ pub fn show_to_console(parsed_packet: &ParsedPacket) {
     let length = &parsed_packet.get_len();
     let ts = &parsed_packet.get_ts();
     println!(
-        "{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35}",
+        //"{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35}",
+        "{0: <40} | {1: <10} | {2: <40} | {3: <10} | {4: <10} | {5: <10} | {6: <35}",
         src_addr, src_port, dst_addr, dst_port, protocol, length, ts
     );
 }
@@ -368,7 +369,8 @@ pub fn get_packet_meta(parsed_packet: &ParsedPacket) -> (String, String, String,
 fn print_headers() {
     println!("\n");
     println!(
-        "{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35} |",
+        //"{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35} |",
+        "{0: <40} | {1: <10} | {2: <40} | {3: <10} | {4: <10} | {5: <10} | {6: <35} |",
         "Source IP", "Source Port", "Dest IP", "Dest Port", "Protocol", "Length", "Timestamp"
     );
     println!("{:-^1$}", "-", 165,);

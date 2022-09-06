@@ -109,7 +109,7 @@ pub async fn task(
             }
 
 
-
+            passed = 0;
         }
         state = pause.cv.wait_while(state, |s| *s == true).unwrap();
     }
