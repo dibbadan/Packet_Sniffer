@@ -181,3 +181,15 @@ impl EndData {
         }
     }
 }
+
+pub struct GenericError {
+    pub error: String
+}
+
+impl GenericError {
+    pub fn new(reason: &str) -> GenericError {
+        GenericError {
+            error: reason.to_string()
+        }
+    }
+}

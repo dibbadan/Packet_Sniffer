@@ -53,9 +53,7 @@ pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result
         task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
     });
 
-    inputs::get_commands(pause, end);
-
-    Ok(())
+    inputs::get_commands(pause, end)
 }
 
 pub fn get_packets(

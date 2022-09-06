@@ -1,12 +1,13 @@
 use crate::lib::shared_data::SharedPause;
-use crate::shared_data::SharedEnd;
-use pcap::Device;
+use crate::shared_data::{GenericError, SharedEnd};
+use pcap::{Device, Error};
 //use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{mpsc, Arc};
 use std::thread::sleep;
 use std::{io, process, thread, time};
+use pcap::Error::PcapError;
 
-pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
+pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) -> Result<(),Error>{
     let end_clone = Arc::clone(&end);
     let thread = thread::Builder::new()
         .name("STDIN".to_string())
@@ -34,8 +35,8 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
     let mut active = true;
     loop {
         match active {
-            true => println!("Please enter s to stop the sniffing"),
-            false => println!("Please enter r to resume the sniffing"),
+            true => println!("Please enter s to stop the sniffing or q to end the process"),
+            false => println!("Please enter r to resume the sniffing or q to end the process"),
         }
         let mut state = end.lock.lock().unwrap();
 
@@ -46,13 +47,13 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         if state.terminated == 3 {
             //panic!("MAIN PANICKED!");
             sleep(time::Duration::from_millis(300));
-            process::exit(1); //we need to terminate the thread STDIN
+            return Err(PcapError("Error in one of the thread".to_string())); //we need to terminate the thread STDIN
         }
         if state.terminated > 0 {
             eprintln!("the program is shutting down");
             state = end.cv.wait_while(state, |s| s.terminated < 3).unwrap();
             sleep(time::Duration::from_millis(300));
-            process::exit(1); //we need to terminate the thread STDIN
+            return Err(PcapError("Error in one of the thread".to_string()));//we need to terminate the thread STDIN
         }
         if state.present {
             state.present = false;
@@ -77,7 +78,7 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
                             end.cv.notify_all();
                             state = end.cv.wait_while(state, |s| s.terminated < 4).unwrap();
                             sleep(time::Duration::from_millis(30));
-                            process::exit(0); //we need to terminate the thread STDIN
+                            return Ok(()); //we need to terminate the thread STDIN
                         }
 
                         _ => {
