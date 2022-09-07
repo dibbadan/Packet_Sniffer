@@ -140,7 +140,7 @@ impl ParsedPacket {
             }
             Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
-                //Err("Error parsing IPv4Header".to_string())
+                
                 Ok(())
             }
         }
@@ -164,7 +164,6 @@ impl ParsedPacket {
             Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
                 Ok(())
-                //Err("Error parsing IPv6Header".to_string())
             }
         }
     }
@@ -191,7 +190,6 @@ impl ParsedPacket {
             _ => {
                 parsed_packet.remaining = content.to_owned();
                 Ok(())
-                //Err("Error parsing transport layer".to_string())
             }
         }
     }
@@ -209,7 +207,6 @@ impl ParsedPacket {
             Err(_err) => {
                 parsed_packet.remaining = content.to_owned();
                 Ok(())
-                //Err("Error parsing TCP".to_string())
             }
         }
     }
@@ -224,7 +221,7 @@ impl ParsedPacket {
 
                 match self.parse_dns(content, parsed_packet) {
                     Ok(()) => (),
-                    Err(error) => ()
+                    Err(_error) => ()
                 }
 
                 parsed_packet.headers.push(PacketHeader::Udp(udp_header));
@@ -234,7 +231,6 @@ impl ParsedPacket {
             Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
                 Ok(())
-                //Err("Error parsing UDP".to_string())
             }
         }
     }
@@ -250,7 +246,6 @@ impl ParsedPacket {
             Err(_) => {
                 parsed_packet.remaining = content.to_owned();
                 Ok(())
-                //Err("Error parsing DNS".to_string())
             }
         }
     }

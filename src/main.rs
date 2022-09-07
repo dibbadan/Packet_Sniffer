@@ -1,6 +1,6 @@
 mod lib;
 
-use crate::lib::lib::sniffer;
+use lib::lib::sniffer;
 use lib::*;
 
 fn main() {

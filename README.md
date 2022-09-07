@@ -26,7 +26,7 @@ Il processo di sniffing può essere messo in pausa in qualunque momento ( premen
     - Avvio
       `cargo run -- [OPTIONS]`
     - OPTIONS:
-      // Immagine da mettere ( Img folder in Github )
+         ![help](/img/help.png)
 
 ## Protocols
 - ethernet
@@ -47,7 +47,9 @@ Il processo di sniffing può essere messo in pausa in qualunque momento ( premen
 **tokio** = { version = "1.20.1", features = ["full"] }
 
 ## Gestione errori 
-Il programma durante l'esecuzione genera **tre thread**, uno per lo sniffing dei pacchetti, uno dedicato al parsing dei pacchetti e uno per la generazione del report.
+Il programma durante l'esecuzione genera **tre thread**, uno per lo sniffing e il parsing dei pacchetti, uno dedicato al salvataggio delle informazioni dei pacchetti necessarie per il report, e uno per la generazione del report.
 
-La gestione degli errori è effettuata tramite l'uso di una struttura condivisa tra i thread, per cui, nel caso del fallimento di un thread anche gli altri termineranno.  
+La gestione degli errori è effettuata tramite l'uso di una struttura condivisa tra i thread, per cui, nel caso del fallimento di un thread anche gli altri termineranno. 
+
+La funzione ritorna errore di tipo [pcap](https://docs.rs/pcap/latest/pcap/enum.Error.html)
 

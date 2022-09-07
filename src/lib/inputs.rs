@@ -1,7 +1,6 @@
 use crate::lib::shared_data::SharedPause;
 use crate::shared_data::{SharedEnd};
 use pcap::{Device, Error};
-//use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{Arc};
 use std::thread::sleep;
 use std::{io,thread, time};

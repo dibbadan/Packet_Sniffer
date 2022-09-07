@@ -1,5 +1,4 @@
 use chrono::Timelike;
-//use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::io::{LineWriter, Write};
 use std::ops::Deref;
