@@ -17,7 +17,7 @@ pub async fn task(
     pause: Arc<SharedPause>,
     end: Arc<SharedEnd>,
 ) {
-    //let mut interval = interval(Duration::from_secs(secs));
+
     let mut interval = interval(Duration::from_secs(1));
     let mut passed = 0;
     interval.tick().await; // skip first tick
@@ -33,32 +33,11 @@ pub async fn task(
                 break;
             }
         }
-        /*let mut propagation = false;
-        {
-            let mut guard = end.lock.lock().unwrap();
-            if guard.terminated > 0 {
-                guard.terminated += 1;
-                propagation = true;
-                end.cv.notify_all();
-            }
-        }
-
-        if propagation {
-            panic!("TOKIO PANICKED!");
-        }*/
 
         let mut state = pause.lock.lock().unwrap();
 
         if passed == secs {
             if *state != true {
-                /*
-                let file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .append(false)
-                    .open(&report_file)
-                    .unwrap();
-                */
 
                 let file = match OpenOptions::new()
                     .write(true)
@@ -87,14 +66,15 @@ pub async fn task(
                     generating_at.second()
                 );
                 let report_header = format!(
-                    "{0: <25} | {1: <25} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} |",
+                    "{0: <25} | {1: <25} | {2: <15} | {3: <15} | {4: <15} | {5: <30} | {6: <30} | {7: <10}",
                     "SRC_ADDR",
                     "DST_ADDR",
                     "SRC_PORT",
                     "DST_PORT",
-                    "Total_Bytes",
-                    "Start_ts",
-                    "End_ts"
+                    "TOTAL_BYTES",
+                    "START_TIMESTAMP",
+                    "END_TIMESTAMP",
+                    "PROTOCOL"
                 );
 
                 let text = time_header + "\n" + &report_header + "\n";
@@ -108,24 +88,12 @@ pub async fn task(
                     }
                 }
 
-                /*
-                file.write_all(time_header.as_bytes()).unwrap();
-                file.write_all(b"\n").unwrap();
-                file.write_all(report_header.as_bytes()).unwrap();
-                file.write_all(b"\n").unwrap();
-                */
 
-                //let mut guard = shared_data.m.map.lock().unwrap();
                 let guard = shared_data.m.map.lock().unwrap();
-
-                // Convert the Hashmap struct to a JSON string.
-                // let json_string =
-                //     serde_json::to_string(guard.deref()).expect("Error in serializing the data structure!");
 
                 if !guard.deref().is_empty() {
                     for (k, v) in guard.deref() {
                         let my_str = format!("{}{}\n", k.to_string(), v.to_string());
-                        // file.write_all(my_str.as_bytes()).unwrap();
 
                         match file.write_all(my_str.as_bytes()) {
                             Ok(()) => {}
@@ -145,18 +113,10 @@ pub async fn task(
                             panic! {"Error while writing {}",err};
                         }
                     }
+
                     println!("{}", format!("Report generated!").red());
                 }
-                /*for (k,v) in guard.deref() {
-                    let my_str = format!("{}{}\n", k.to_string(), v.to_string());
-                    file.write_all(my_str.as_bytes()).unwrap();
-                }*/
 
-                //file.write_all(json_string.as_bytes()).unwrap();
-
-                /*file.write_all(b"\n").unwrap();
-
-                println!("{}", format!("Report generated!").red());*/
             }
 
             passed = 0;

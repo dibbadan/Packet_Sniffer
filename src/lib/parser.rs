@@ -83,16 +83,24 @@ impl ParsedPacket {
         len: u32,
         ts: String,
     ) -> Result<ParsedPacket, String> {
-        let mut parsed_packet = self.parse_link_layer(&data)?;
+
+        let mut parsed_packet = match self.parse_link_layer(&data) {
+            Ok(parsed_packet) => parsed_packet,
+            Err(error) => return Err(error)
+        };
+
         parsed_packet.len = len;
         parsed_packet.timestamp = ts;
         Ok(parsed_packet)
     }
 
     pub fn parse_link_layer(&self, content: &[u8]) -> Result<ParsedPacket, String> {
+
         let mut parsed_packet = ParsedPacket::new();
+
         match ethernet::parse_ethernet_frame(content) {
             Ok((content, headers)) => {
+
                 match headers.ethertype {
                     EtherType::IPv4 => {
                         self.parse_ipv4(content, &mut parsed_packet)?;
@@ -100,11 +108,7 @@ impl ParsedPacket {
                     EtherType::IPv6 => {
                         self.parse_ipv6(content, &mut parsed_packet)?;
                     }
-                    /*EtherType::ARP => {
-                        self.parse_arp(content, &mut parsed_packet)?;
-                    }*/
                     _ => {
-
                         parsed_packet.remaining = content.to_owned();
                     }
                 }
@@ -126,18 +130,18 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match ipv4::parse_ipv4_header(content) {
             Ok((content, ipv4_header)) => {
-                /*self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet)?;*/
                 match self.parse_transport_layer(&ipv4_header.protocol, content, parsed_packet) {
                     Ok(()) => {
                         parsed_packet.headers.push(PacketHeader::Ipv4(ipv4_header));
                         Ok(())
                     }
-                    Err(_error) => Ok(()),
+                    Err(error) => return Err(error),
                 }
             }
             Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error parsing IPv4Header".to_string())
+                //Err("Error parsing IPv4Header".to_string())
+                Ok(())
             }
         }
     }
@@ -149,20 +153,18 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match ipv6::parse_ipv6_header(content) {
             Ok((content, ipv6_header)) => {
-                //self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet)?;
                 match self.parse_transport_layer(&ipv6_header.next_header, content, parsed_packet) {
                     Ok(()) => {
                         parsed_packet.headers.push(PacketHeader::Ipv6(ipv6_header));
                         Ok(())
                     }
-                    Err(_error) => Ok(()),
+                    Err(error) => return Err(error),
                 }
-                /*parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
-                Ok(())*/
             }
-            Err(_err) => {
+            Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error parsing IPv6Header".to_string())
+                Ok(())
+                //Err("Error parsing IPv6Header".to_string())
             }
         }
     }
@@ -175,18 +177,21 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match protocol_type {
             IPProtocol::TCP => {
-                self.parse_tcp(content, parsed_packet)
-                    .expect("Error in parsing TCP");
-                Ok(())
+                match self.parse_tcp(content, parsed_packet) {
+                    Ok(()) => Ok(()),
+                    Err(error) => return Err(error)
+                }
             }
             IPProtocol::UDP => {
-                self.parse_udp(content, parsed_packet)
-                    .expect("Error in parsing UDP");
-                Ok(())
+                match self.parse_udp(content, parsed_packet) {
+                    Ok(()) => Ok(()),
+                    Err(error) => return Err(error)
+                }
             }
             _ => {
                 parsed_packet.remaining = content.to_owned();
-                Err("error parsing transport layer".to_string())
+                Ok(())
+                //Err("Error parsing transport layer".to_string())
             }
         }
     }
@@ -203,7 +208,8 @@ impl ParsedPacket {
             }
             Err(_err) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error parsing TCP".to_string())
+                Ok(())
+                //Err("Error parsing TCP".to_string())
             }
         }
     }
@@ -215,26 +221,36 @@ impl ParsedPacket {
     ) -> Result<(), String> {
         match udp::parse_udp_header(content) {
             Ok((content, udp_header)) => {
-                self.parse_dns(content, parsed_packet);
+
+                match self.parse_dns(content, parsed_packet) {
+                    Ok(()) => (),
+                    Err(error) => ()
+                }
+
                 parsed_packet.headers.push(PacketHeader::Udp(udp_header));
                 Ok(())
+
             }
-            Err(_err) => {
+            Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
-                Err("Error parsing UDP".to_string())
+                Ok(())
+                //Err("Error parsing UDP".to_string())
             }
         }
     }
 
-    fn parse_dns(&self, content: &[u8], parsed_packet: &mut ParsedPacket) {
+    fn parse_dns(&self, content: &[u8], parsed_packet: &mut ParsedPacket) -> Result<(), String> {
         match dns_parser::Packet::parse(content) {
             Ok(packet) => {
                 parsed_packet
                     .headers
                     .push(PacketHeader::Dns(DnsPacket::from(packet)));
+                Ok(())
             }
             Err(_) => {
                 parsed_packet.remaining = content.to_owned();
+                Ok(())
+                //Err("Error parsing DNS".to_string())
             }
         }
     }

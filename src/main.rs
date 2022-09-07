@@ -6,6 +6,8 @@ use lib::*;
 fn main() {
     match sniffer() {
         Ok(()) => {}
-        Err(error) => panic!("{}", error.to_string()),
+        Err(error) => {
+            eprintln!("Uscita dal main ... Errore: {}", error.to_string())
+        },
     }
 }

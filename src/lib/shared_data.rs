@@ -4,17 +4,11 @@ use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::sync::{Arc, Condvar, Mutex};
 
-/*pub struct MapData {
-    pub map: Mutex<HashMap<Key, (u32, String, String)>>,
-}
-*/
-
 pub struct MapData {
     pub map: Mutex<HashMap<Key, Value>>,
 }
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq)]
-//pub struct Key(IpAddr, IpAddr);
 pub struct Key(IpAddr, IpAddr, u16, u16);
 
 pub struct Value(u32, String, String, String);
@@ -26,17 +20,9 @@ impl Value {
     pub fn add_to_bytes(&mut self, bytes: u32) {
         self.0 += bytes;
     }
-
-    /*pub fn set_start_ts(&mut self, start_ts: String) {
-        self.1 = start_ts;
-    }*/
-
     pub fn set_end_ts(&mut self, end_ts: String) {
         self.2 = end_ts;
     }
-    /*pub fn set_protocol(&mut self, protocol: String) {
-        self.3 = protocol;
-    }*/
 }
 
 impl Display for Value {
@@ -52,12 +38,6 @@ impl Display for Value {
     }
 }
 
-/*impl Key {
-    pub fn new(src: IpAddr, dst: IpAddr) -> Self {
-        Key(src, dst)
-    }
-}*/
-
 impl Key {
     pub fn new(src: IpAddr, dst: IpAddr, src_port: u16, dst_port: u16) -> Self {
         Key(src, dst, src_port, dst_port)
@@ -65,11 +45,7 @@ impl Key {
 }
 
 impl Display for Key {
-    /*
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "\nSRC_ADDR = {}\nDST_ADDR = {}\nSRC_PORT = {}\nDST_PORT = {}\n", self.0.to_string(), self.1.to_string(), self.2.to_string(), self.3.to_string())
-    }
-     */
+
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -82,41 +58,6 @@ impl Display for Key {
     }
 }
 
-/*impl Serialize for Key {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&format!(
-            "SRC_ADDR = {} -- DST_ADDR = {}",
-            self.0.to_string(),
-            self.1.to_string()
-        ))
-    }
-}
-
-impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&format!(
-            "TOTAL_BYTES = {}, START_TS = {}, END_TS = {}, PROT = {} ",
-            self.0.to_string(),
-            self.1,
-            self.2,
-            self.3
-        ))
-    }
-}*/
-
-/*impl MapData {
-    pub fn new() -> Self {
-        MapData {
-            map: Mutex::new(HashMap::<Key, (u32, String, String)>::new()),
-        }
-    }
-}*/
 
 impl MapData {
     pub fn new() -> Self {
@@ -178,18 +119,6 @@ impl EndData {
             present: false,
             result: Ok(0),
             terminated: 0,
-        }
-    }
-}
-
-pub struct GenericError {
-    pub error: String
-}
-
-impl GenericError {
-    pub fn new(reason: &str) -> GenericError {
-        GenericError {
-            error: reason.to_string()
         }
     }
 }

@@ -37,14 +37,24 @@ pub async fn sniff(device: Device, interval: u64, report_file: String) -> Result
     let end_clone2 = Arc::clone(&end);
     let end_clone3 = Arc::clone(&end);
 
-    get_packets(tx, device, pause_clone, end_clone1)?;
-    receive_packets(rx, mappa_clone, end_clone2)?;
+
+    match get_packets(tx, device, pause_clone, end_clone1) {
+        Ok(()) => (),
+        Err(error) => return Err(error)
+    }
+
+    receive_packets(rx, mappa_clone, end_clone2);
 
     tokio::spawn(async move {
         task(interval, report_file, mappa, pausa_clone_task, end_clone3).await;
     });
 
-    inputs::get_commands(pause, end)
+    match inputs::get_commands(pause, end) {
+        Ok(()) => (),
+        Err(error) => return Err(error)
+    }
+
+    Ok(())
 }
 
 pub fn get_packets(
@@ -53,26 +63,28 @@ pub fn get_packets(
     pause: Arc<SharedPause>,
     end: Arc<SharedEnd>,
 ) -> Result<(), Error> {
+
     let mut cap_handle = match Capture::from_device(device) {
-        Ok(capture) => match capture.promisc(true).timeout(1000).open() {
+        Ok(capture) => match capture.promisc(true)
+            .timeout(1000).open() {
             Ok(cap_handle) => cap_handle,
             Err(error) => {
-                eprintln!("{}", error.to_string());
                 return Err(error);
             }
         },
         Err(error) => {
-            eprintln!("{}", error.to_string());
             return Err(error);
         }
     };
 
     let parser = ParsedPacket::new();
+
     let tx = tx.clone();
 
     thread::Builder::new()
         .name("SENDER".to_string())
         .spawn(move || loop {
+
             {
                 let mut guard = end.lock.lock().unwrap();
                 if guard.terminated > 0 {
@@ -82,43 +94,19 @@ pub fn get_packets(
                 }
             }
 
-            /*let mut propagation = false;
-
-            {
-                let mut guard = end.lock.lock().unwrap();
-                if guard.terminated > 0 {
-                    guard.terminated += 1;
-                    propagation = true;
-                    end.cv.notify_all();
-                }
-            }
-
-            if propagation {
-                panic!("GET PACKETS PANICKED DUE TO PANIC PROPAGATION!");
-            }*/
-
-            //let packet;
-
             let packet = match cap_handle.next() {
+
                 Ok(packet) => packet,
 
                 Err(error) => match error {
                     TimeoutExpired => {
-                        let mut guard = end.lock.lock().unwrap();
-                        if guard.terminated > 0 {
-                            guard.terminated += 1;
-                            end.cv.notify_all();
-                            break;
-                        }
-
                         continue;
                     }
                     _ => {
-                        eprintln!("{}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
                         end.cv.notify_all();
-                        panic!("GET PACKETS PANICKED!");
+                        panic!("Problema riscontrato durante lo sniffing dei pacchetti!");
                     }
                 },
             };
@@ -137,28 +125,26 @@ pub fn get_packets(
 
                 match parsed_packet {
                     Ok(parsed_packet) => {
-                        /*tx.send(parsed_packet).unwrap();*/
                         match tx.send(parsed_packet) {
                             Ok(()) => {}
-                            Err(error) => {
+                            Err(_error) => {
                                 {
-                                    eprintln!("{}", error);
                                     let mut guard = end.lock.lock().unwrap();
                                     guard.terminated += 1;
                                     end.cv.notify_all();
                                 }
-                                panic!("GET PACKETS PANICKED!");
+                                panic!("Errore interno!");
                             }
                         }
                     }
-                    Err(error) => {
+                    Err(_error) => {
+                        println!("ERRORE = {}", _error);
                         {
-                            eprintln!("{}", error);
                             let mut guard = end.lock.lock().unwrap();
                             guard.terminated += 1;
                             end.cv.notify_all();
                         }
-                        panic!("GET PACKETS PANICKED!");
+                        panic!("Errore nel parsing del pacchetto!");
                     }
                 }
             }
@@ -174,7 +160,8 @@ pub fn receive_packets(
     rx: Receiver<ParsedPacket>,
     shared_data: Arc<SharedData>,
     end: Arc<SharedEnd>,
-) -> Result<(), Error> {
+) {
+
     print_headers();
 
     thread::Builder::new()
@@ -196,25 +183,17 @@ pub fn receive_packets(
 
             let packet = match result {
                 Ok(packet) => packet,
-                Err(error) => {
+                Err(_error) => {
                     {
-                        eprintln!("{}", error.to_string());
                         let mut guard = end.lock.lock().unwrap();
                         guard.terminated += 1;
                         end.cv.notify_all();
                     }
-                    panic!("RECEIVE PACKETS PANICKED!");
+                    panic!("Errore interno!");
                 }
             };
 
             let mut guard = shared_data.m.map.lock().unwrap();
-
-            /*let addr_pair = match get_addr(&packet) {
-                Ok(addr_pair) => addr_pair,
-                Err(error) => {
-                    //return Err(error);
-                }
-            };*/
 
             let addr_pair = get_addr(&packet);
 
@@ -240,38 +219,13 @@ pub fn receive_packets(
 
             show_to_console(&packet);
 
-
-
-            /*let mut propagation = false;
-
-            {
-                let mut guard = end.lock.lock().unwrap();
-                if guard.terminated > 0 {
-                    guard.terminated += 1;
-                    propagation = true;
-                    end.cv.notify_all();
-                }
-            }
-
-            if propagation {
-                panic!("RECEIVE PACKETS PANICKED DUE TO PANIC PROPAGATION!");
-            }*/
-
-            /*{
-                let mut guard = end.lock.lock().unwrap();
-                if guard.terminated > 0 {
-                    guard.terminated += 1;
-                    end.cv.notify_all();
-                    break;
-                }
-            }*/
         })
         .unwrap();
 
-    Ok(())
 }
 
 pub fn get_addr(parsed_packet: &ParsedPacket) -> Key {
+
     let mut addr_pair: Key = Key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -316,16 +270,6 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> Key {
         _ => {}
     });
 
-    /*headers.iter().for_each(|h| match h {
-        PacketHeader::Ipv4(packet) => {
-            addr_pair = Key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr));
-        }
-        PacketHeader::Ipv6(packet) => {
-            addr_pair = Key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr));
-        }
-        _ => {}
-    });*/
-
     addr_pair
 }
 
@@ -335,7 +279,6 @@ pub fn show_to_console(parsed_packet: &ParsedPacket) {
     let length = &parsed_packet.get_len();
     let ts = &parsed_packet.get_ts();
     println!(
-        //"{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35}",
         "{0: <40} | {1: <10} | {2: <40} | {3: <10} | {4: <10} | {5: <10} | {6: <35}",
         src_addr, src_port, dst_addr, dst_port, protocol, length, ts
     );
@@ -375,93 +318,8 @@ pub fn get_packet_meta(parsed_packet: &ParsedPacket) -> (String, String, String,
 fn print_headers() {
     println!("\n");
     println!(
-        //"{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35} |",
         "{0: <40} | {1: <10} | {2: <40} | {3: <10} | {4: <10} | {5: <10} | {6: <35} |",
         "Source IP", "Source Port", "Dest IP", "Dest Port", "Protocol", "Length", "Timestamp"
     );
     println!("{:-^1$}", "-", 165,);
 }
-
-/*
-    pub fn get_packet_meta(
-        &self,
-        parsed_packet: &ParsedPacket,
-    ) -> (String, String, String, String) {
-        let mut src_addr = "".to_string();
-        let mut dst_addr = "".to_string();
-        let mut src_port = "".to_string();
-        let mut dst_port = "".to_string();
-
-        let headers = parsed_packet.get_headers();
-
-        headers.iter().for_each(|h| match h {
-            PacketHeader::Tcp(packet) => {
-                src_port = packet.source_port.to_string();
-                dst_port = packet.dest_port.to_string();
-            }
-            PacketHeader::Udp(packet) => {
-                src_port = packet.source_port.to_string();
-                dst_port = packet.dest_port.to_string();
-            }
-            PacketHeader::Ipv4(packet) => {
-                src_addr = IpAddr::V4(packet.source_addr).to_string();
-                dst_addr = IpAddr::V4(packet.dest_addr).to_string();
-            }
-            PacketHeader::Ipv6(packet) => {
-                src_addr = IpAddr::V6(packet.source_addr).to_string();
-                dst_addr = IpAddr::V6(packet.dest_addr).to_string();
-            }
-            _ => {}
-        });
-
-        (src_addr, src_port, dst_addr, dst_port)
-    }
-
-    fn print_headers(&self) {
-        println!("\n");
-        println!(
-            "{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35} |",
-            "Source IP", "Source Port", "Dest IP", "Dest Port", "Protocol", "Length", "Timestamp"
-        );
-        println!("{:-^1$}", "-", 165,);
-    }
-
-    pub fn show_to_console(&self, parsed_packet: &ParsedPacket) {
-        let (src_addr, src_port, dst_addr, dst_port) = self.get_packet_meta(&parsed_packet);
-        let protocol = &parsed_packet.get_headers()[0].to_string(); // Transport layer protocol (TCP or UDP)
-        let length = &parsed_packet.get_len();
-        let ts = &parsed_packet.get_ts();
-        println!(
-            "{0: <25} | {1: <15} | {2: <25} | {3: <15} | {4: <15} | {5: <15} | {6: <35}",
-            src_addr, src_port, dst_addr, dst_port, protocol, length, ts
-        );
-    }
-
-    pub fn get_addr(&self, parsed_packet: &ParsedPacket) -> (IpAddr, IpAddr) {
-        let mut addr_pair: (IpAddr, IpAddr) = (
-            (IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
-            (IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
-        );
-
-        let headers = parsed_packet.get_headers();
-
-        headers.iter().for_each(|h| match h {
-            PacketHeader::Ipv4(packet) => {
-                addr_pair = (IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr));
-            }
-            PacketHeader::Ipv6(packet) => {
-                addr_pair = (IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr));
-            }
-            _ => {}
-        });
-
-        addr_pair
-    }
-
-    pub fn show_map(&self) {
-        println!("\n");
-        println!("{:?}", self.map);
-        println!("\n");
-    }
-}
-*/

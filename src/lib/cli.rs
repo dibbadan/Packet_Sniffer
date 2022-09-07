@@ -2,18 +2,18 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[clap(name = "Network Packets Sniffer")]
-#[clap(author = "Student_1, Student_2, Student_3")]
+#[clap(author = "Daniele Di Battista, George Florin Eftime, Samuele Giangreco")]
 #[clap(version = "1.0")]
 #[clap(
     about = "Simple network packets sniffer",
-    long_about = "TODO specific info about the limits of the library and its correct use"
+    long_about = "PacketSniffer è un'applicazione multipiattaforma dedicata all'attività di intercettazione passiva dei dati che transitano in una rete telematica ( anche noto come attività di sniffing )."
 )]
 
 pub struct Cli {
-    /// Time interval ( in seconds ) after which a new report will be generated; Default is 10
+    /// Time interval ( in seconds ) after which a new report will be generated ( Default is 10 )
     #[clap(short = 'i', long = "interval")]
     interval: Option<u64>,
-    /// Report file to be generated; Default is report.txt
+    /// Report file to be generated. ( Default is report.txt )
     #[clap(short = 'o', long = "output")]
     report: Option<String>,
 }
