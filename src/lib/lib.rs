@@ -10,11 +10,15 @@ pub fn sniffer() -> Result<(), Error> {
 
     let (interval, report_file) = Cli::get_parameters(cli);
 
-    let devices = sniffer::list_devices()?;
+    let device;
+    let d = sniffer::list_devices();
+    match d {
+        Ok(devices) => device = get_device(devices),
+        Err(e) => return Err(e)
+    }
 
-    let device = get_device(devices);
-
-    sniffer::sniff(device, interval, report_file)?;
-
-    Ok(())
+    match sniffer::sniff(device, interval, report_file){
+        Ok(_) => Ok(()),
+        Err(e) => Err(e)
+    }
 }
