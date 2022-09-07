@@ -1,7 +1,5 @@
 use crate::lib::dns::DnsPacket;
-use pcap::{Error, Packet};
-use pktparse::arp::ArpPacket;
-use pktparse::ethernet::{EtherType, EthernetFrame, parse_ethernet_frame};
+use pktparse::ethernet::{EtherType, EthernetFrame};
 use pktparse::ip::IPProtocol;
 use pktparse::ipv4::IPv4Header;
 use pktparse::ipv6::IPv6Header;
@@ -63,10 +61,10 @@ impl ParsedPacket {
         let mut protocol = "".to_string();
 
         self.headers.iter().for_each(|h| match h {
-            PacketHeader::Tcp(packet) => {
+            PacketHeader::Tcp(_packet) => {
                 protocol = "TCP".to_string();
             }
-            PacketHeader::Udp(packet) => {
+            PacketHeader::Udp(_packet) => {
                 protocol = "UDP".to_string();
             }
             _ => {}
@@ -127,17 +125,17 @@ impl ParsedPacket {
         parsed_packet: &mut ParsedPacket,
     ) -> Result<(), String> {
         match ipv4::parse_ipv4_header(content) {
-            Ok((content, IPv4Header)) => {
+            Ok((content, ipv4_header)) => {
                 /*self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet)?;*/
-                match self.parse_transport_layer(&IPv4Header.protocol, content, parsed_packet) {
+                match self.parse_transport_layer(&ipv4_header.protocol, content, parsed_packet) {
                     Ok(()) => {
-                        parsed_packet.headers.push(PacketHeader::Ipv4(IPv4Header));
+                        parsed_packet.headers.push(PacketHeader::Ipv4(ipv4_header));
                         Ok(())
                     }
-                    Err(error) => Ok(()),
+                    Err(_error) => Ok(()),
                 }
             }
-            Err(err) => {
+            Err(_error) => {
                 parsed_packet.remaining = content.to_owned();
                 Err("Error parsing IPv4Header".to_string())
             }
@@ -150,19 +148,19 @@ impl ParsedPacket {
         parsed_packet: &mut ParsedPacket,
     ) -> Result<(), String> {
         match ipv6::parse_ipv6_header(content) {
-            Ok((content, IPv6Header)) => {
+            Ok((content, ipv6_header)) => {
                 //self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet)?;
-                match self.parse_transport_layer(&IPv6Header.next_header, content, parsed_packet) {
-                    Ok(value) => {
-                        parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
+                match self.parse_transport_layer(&ipv6_header.next_header, content, parsed_packet) {
+                    Ok(()) => {
+                        parsed_packet.headers.push(PacketHeader::Ipv6(ipv6_header));
                         Ok(())
                     }
-                    Err(error) => Ok(()),
+                    Err(_error) => Ok(()),
                 }
                 /*parsed_packet.headers.push(PacketHeader::Ipv6(IPv6Header));
                 Ok(())*/
             }
-            Err(err) => {
+            Err(_err) => {
                 parsed_packet.remaining = content.to_owned();
                 Err("Error parsing IPv6Header".to_string())
             }
@@ -199,11 +197,11 @@ impl ParsedPacket {
         parsed_packet: &mut ParsedPacket,
     ) -> Result<(), String> {
         match tcp::parse_tcp_header(content) {
-            Ok((content, tcp_header)) => {
+            Ok((_content, tcp_header)) => {
                 parsed_packet.headers.push(PacketHeader::Tcp(tcp_header));
                 Ok(())
             }
-            Err(err) => {
+            Err(_err) => {
                 parsed_packet.remaining = content.to_owned();
                 Err("Error parsing TCP".to_string())
             }
@@ -221,7 +219,7 @@ impl ParsedPacket {
                 parsed_packet.headers.push(PacketHeader::Udp(udp_header));
                 Ok(())
             }
-            Err(err) => {
+            Err(_err) => {
                 parsed_packet.remaining = content.to_owned();
                 Err("Error parsing UDP".to_string())
             }

@@ -1,15 +1,8 @@
 use clap::Parser;
-use pcap::{Device, Error};
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use pcap::{Error};
 
 use crate::lib::cli::Cli;
-use crate::lib::executor::task;
 use crate::lib::inputs::get_device;
-use crate::lib::shared_data::{key, MapData, SharedData};
 use crate::lib::sniffer;
 
 pub fn sniffer() -> Result<(), Error> {

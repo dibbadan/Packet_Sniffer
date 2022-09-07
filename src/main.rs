@@ -2,7 +2,6 @@ mod lib;
 
 use crate::lib::lib::sniffer;
 use lib::*;
-use pcap::Error;
 
 fn main() {
     match sniffer() {

@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct DnsPacket {
-    questions: Vec<String>,
-    answers: Vec<String>,
+    _questions: Vec<String>,
+    _answers: Vec<String>,
 }
 
 impl From<dns_parser::Packet<'_>> for DnsPacket {
@@ -18,6 +18,6 @@ impl From<dns_parser::Packet<'_>> for DnsPacket {
             .map(|a| a.name.to_string())
             .collect();
 
-        Self { questions, answers }
+        Self { _questions: questions, _answers: answers }
     }
 }

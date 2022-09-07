@@ -2,7 +2,7 @@ use crate::lib::shared_data::SharedPause;
 use crate::shared_data::SharedEnd;
 use pcap::Device;
 //use std::sync::mpsc::{Receiver, TryRecvError};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc};
 use std::thread::sleep;
 use std::{io, process, thread, time};
 
@@ -12,7 +12,8 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
         .name("STDIN".to_string())
         .spawn(move || loop {
             let mut buffer = String::new();
-            let mut r = io::stdin().read_line(&mut buffer);
+            //let mut r = io::stdin().read_line(&mut buffer);
+            let r = io::stdin().read_line(&mut buffer);
             {
                 let mut guard = end_clone.lock.lock().unwrap();
                 guard.present = true;
@@ -58,7 +59,8 @@ pub fn get_commands(pause: Arc<SharedPause>, end: Arc<SharedEnd>) {
             state.present = false;
             match state.result {
                 Ok(_) => {
-                    let mut c = state.buf.chars().next();
+                    //let mut c = state.buf.chars().next();
+                    let c = state.buf.chars().next();
                     match c {
                         Some(c) if active == true && c == 's' => {
                             active = false;
@@ -101,10 +103,12 @@ pub fn get_device(devices: Vec<Device>) -> Device {
     println!("Insert the number of the device you want to sniff on");
     loop {
         let mut buffer = String::new();
-        let mut r = io::stdin().read_line(&mut buffer);
+        //let mut r = io::stdin().read_line(&mut buffer);
+        let r = io::stdin().read_line(&mut buffer);
         match r {
             Ok(_) => {
-                let mut num = buffer.trim().parse::<usize>();
+                //let mut num = buffer.trim().parse::<usize>();
+                let num = buffer.trim().parse::<usize>();
                 match num {
                     Ok(n) if n < devices.len() => {
                         return devices[n].clone();

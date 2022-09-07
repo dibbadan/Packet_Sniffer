@@ -1,25 +1,16 @@
 use crate::lib::parser::{PacketHeader, ParsedPacket};
-use crate::lib::shared_data::{key, value, SharedData, SharedPause};
-use crate::lib::{executor::task, inputs, shared_data};
+use crate::lib::shared_data::{Key, Value, SharedData, SharedPause};
+use crate::lib::{executor::task, inputs};
 use crate::shared_data::SharedEnd;
-use colored::Colorize;
 use pcap::Error::TimeoutExpired;
-use pcap::{Active, Capture, Dead, Device, Error, Packet};
-use pktparse::ip::IPProtocol;
-use pktparse::tcp::TcpHeader;
-use std::collections::HashMap;
-use std::io::Write;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::ops::Deref;
-use std::sync::mpsc::{Receiver, RecvError, Sender};
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::{current, sleep};
-use std::time::Duration;
-use std::{io, panic, thread};
-use tokio::task::JoinHandle;
+use pcap::{Capture, Device, Error};
+use std::net::{IpAddr, Ipv4Addr};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc};
+use std::{panic, thread};
 
 pub fn list_devices() -> Result<Vec<Device>, Error> {
-    let mut devices = match Device::list() {
+    let devices = match Device::list() {
         Ok(devices) => devices,
         Err(error) => {
             eprintln!("{}", error.to_string());
@@ -237,7 +228,7 @@ pub fn receive_packets(
                 None => {
                     guard.insert(
                         addr_pair,
-                        value::new(
+                        Value::new(
                             packet.get_len(),
                             packet.get_ts().to_string(),
                             packet.get_ts().to_string(),
@@ -282,8 +273,8 @@ pub fn receive_packets(
     Ok(())
 }
 
-pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
-    let mut addr_pair: key = key::new(
+pub fn get_addr(parsed_packet: &ParsedPacket) -> Key {
+    let mut addr_pair: Key = Key::new(
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         0,
@@ -309,7 +300,7 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
 
     headers.iter().for_each(|h| match h {
         PacketHeader::Ipv4(packet) => {
-            addr_pair = key::new(
+            addr_pair = Key::new(
                 IpAddr::V4(packet.source_addr),
                 IpAddr::V4(packet.dest_addr),
                 src_port,
@@ -317,7 +308,7 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
             );
         }
         PacketHeader::Ipv6(packet) => {
-            addr_pair = key::new(
+            addr_pair = Key::new(
                 IpAddr::V6(packet.source_addr),
                 IpAddr::V6(packet.dest_addr),
                 src_port,
@@ -329,10 +320,10 @@ pub fn get_addr(parsed_packet: &ParsedPacket) -> key {
 
     /*headers.iter().for_each(|h| match h {
         PacketHeader::Ipv4(packet) => {
-            addr_pair = key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr));
+            addr_pair = Key::new(IpAddr::V4(packet.source_addr), IpAddr::V4(packet.dest_addr));
         }
         PacketHeader::Ipv6(packet) => {
-            addr_pair = key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr));
+            addr_pair = Key::new(IpAddr::V6(packet.source_addr), IpAddr::V6(packet.dest_addr));
         }
         _ => {}
     });*/

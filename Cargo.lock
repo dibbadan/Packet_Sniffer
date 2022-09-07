@@ -3,19 +3,6 @@
 version = 3
 
 [[package]]
-name = "Packet_Sniffer"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "colored",
- "dns-parser",
- "pcap",
- "pktparse",
- "tokio",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -357,6 +344,19 @@ name = "os_str_bytes"
 version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "648001efe5d5c0102d8cea768e348da85d90af8ba91f0bea908f157951493cd4"
+
+[[package]]
+name = "packet_sniffer"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "colored",
+ "dns-parser",
+ "pcap",
+ "pktparse",
+ "tokio",
+]
 
 [[package]]
 name = "parking_lot"

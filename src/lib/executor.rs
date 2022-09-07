@@ -115,7 +115,8 @@ pub async fn task(
                 file.write_all(b"\n").unwrap();
                 */
 
-                let mut guard = shared_data.m.map.lock().unwrap();
+                //let mut guard = shared_data.m.map.lock().unwrap();
+                let guard = shared_data.m.map.lock().unwrap();
 
                 // Convert the Hashmap struct to a JSON string.
                 // let json_string =
